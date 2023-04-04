@@ -12,6 +12,7 @@ type Fuzzer struct {
 	nodes                       []uint64
 	config                      *FuzzerConfig
 	mutator                     Mutator
+	mutatedTracesQueue          *Queue[*List[*SchedulingChoice]]
 	mutatedNodeChoices          *Queue[uint64]
 	curEventTrace               *List[*Event]
 	curTrace                    *List[*SchedulingChoice]
@@ -29,6 +30,7 @@ type FuzzerConfig struct {
 	TLCAddr               string
 	Mutator               Mutator
 	RaftEnvironmentConfig RaftEnvironmentConfig
+	MutPerTrace           int
 }
 
 func NewFuzzer(config *FuzzerConfig) *Fuzzer {
@@ -37,6 +39,7 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		nodes:                       make([]uint64, 0),
 		messageQueues:               make(map[uint64]*Queue[pb.Message]),
 		mutator:                     config.Mutator,
+		mutatedTracesQueue:          NewQueue[*List[*SchedulingChoice]](),
 		mutatedNodeChoices:          NewQueue[uint64](),
 		curEventTrace:               NewList[*Event](),
 		curTrace:                    NewList[*SchedulingChoice](),
@@ -52,6 +55,10 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		f.messageQueues[uint64(i)] = NewQueue[pb.Message]()
 	}
 	return f
+}
+
+func (f *Fuzzer) Coverage() int {
+	return len(f.statesMap)
 }
 
 func (f *Fuzzer) GetRandomBoolean() (choice bool) {
@@ -115,6 +122,7 @@ func (f *Fuzzer) GetNextMessage() (message pb.Message, ok bool) {
 			"from":     message.From,
 			"to":       message.To,
 			"log_term": message.LogTerm,
+			"entries":  message.Entries,
 			"index":    message.Index,
 			"commit":   message.Commit,
 			"vote":     message.Vote,
@@ -137,6 +145,7 @@ func (f *Fuzzer) recordSend(message pb.Message) {
 			"from":     message.From,
 			"to":       message.To,
 			"log_term": message.LogTerm,
+			"entries":  message.Entries,
 			"index":    message.Index,
 			"commit":   message.Commit,
 			"vote":     message.Vote,
@@ -146,65 +155,78 @@ func (f *Fuzzer) recordSend(message pb.Message) {
 }
 
 func (f *Fuzzer) Run() error {
-	ctx := &FuzzContext{fuzzer: f}
 	for i := 0; i < f.config.Iterations; i++ {
-		// Reset current trace
-		f.curEventTrace.Reset()
-		f.curTrace.Reset()
-		for _, q := range f.messageQueues {
-			q.Reset()
-		}
-		init := f.raftEnvironment.Reset()
-		for _, m := range init {
-			f.recordSend(m)
-			f.messageQueues[m.To].Push(m)
-		}
-
-		for j := 0; j < f.config.Steps; j++ {
-			message, ok := f.GetNextMessage()
-			if !ok {
-				continue
-			}
-			new := f.raftEnvironment.Step(ctx, message)
-			for _, m := range new {
-				if m.Type != pb.MsgProp {
-					f.recordSend(m)
-				}
-				f.messageQueues[m.To].Push(m)
-			}
-		}
-		f.mutatedNodeChoices.Reset()
-		f.mutatedRandomBooleanChoices.Reset()
-		f.mutatedRandomIntegerChoices.Reset()
-		// Transmit trace to TLC and mutate
-		if tlcStates, err := f.tlcClient.SendTrace(f.curEventTrace); err == nil {
-			haveNewState := false
-			for _, s := range tlcStates {
-				_, ok := f.statesMap[s.Key]
-				if !ok {
-					haveNewState = true
-					f.statesMap[s.Key] = true
-				}
-			}
-			if haveNewState {
-				mutatedTrace, ok := f.mutator.Mutate(f.curTrace, f.curEventTrace)
-				if ok {
-					for _, choice := range mutatedTrace.AsList() {
-						switch choice.Type {
-						case RandomBoolean:
-							f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
-						case RandomInteger:
-							f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
-						case Node:
-							f.mutatedNodeChoices.Push(choice.NodeID)
-						}
-					}
-				}
-			}
-		}
-
+		f.RunIteration(i)
 	}
 	return nil
+}
+
+func (f *Fuzzer) RunIteration(_ int) {
+	ctx := &FuzzContext{fuzzer: f}
+	// Reset current trace
+	f.curEventTrace.Reset()
+	f.curTrace.Reset()
+	for _, q := range f.messageQueues {
+		q.Reset()
+	}
+	init := f.raftEnvironment.Reset()
+	for _, m := range init {
+		f.recordSend(m)
+		f.messageQueues[m.To].Push(m)
+	}
+
+	for j := 0; j < f.config.Steps; j++ {
+		message, ok := f.GetNextMessage()
+		if !ok {
+			continue
+		}
+		new := f.raftEnvironment.Step(ctx, message)
+		for _, m := range new {
+			if m.Type != pb.MsgProp {
+				f.recordSend(m)
+			}
+			f.messageQueues[m.To].Push(m)
+		}
+	}
+	f.mutatedNodeChoices.Reset()
+	f.mutatedRandomBooleanChoices.Reset()
+	f.mutatedRandomIntegerChoices.Reset()
+	// Transmit trace to TLC and mutate
+	if tlcStates, err := f.tlcClient.SendTrace(f.curEventTrace); err == nil {
+		haveNewState := false
+		for _, s := range tlcStates {
+			_, ok := f.statesMap[s.Key]
+			if !ok {
+				haveNewState = true
+				f.statesMap[s.Key] = true
+			}
+		}
+		if haveNewState {
+			mutatedTraces := make([]*List[*SchedulingChoice], 0)
+			for i := 0; i < f.config.MutPerTrace; i++ {
+				new, ok := f.mutator.Mutate(f.curTrace, f.curEventTrace)
+				if ok {
+					mutatedTraces = append(mutatedTraces, new)
+				}
+			}
+			if len(mutatedTraces) > 0 {
+				f.mutatedTracesQueue.PushAll(mutatedTraces...)
+			}
+		}
+		if f.mutatedTracesQueue.Size() > 0 {
+			mutatedTrace, _ := f.mutatedTracesQueue.Pop()
+			for _, choice := range mutatedTrace.AsList() {
+				switch choice.Type {
+				case RandomBoolean:
+					f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
+				case RandomInteger:
+					f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
+				case Node:
+					f.mutatedNodeChoices.Push(choice.NodeID)
+				}
+			}
+		}
+	}
 }
 
 type Mutator interface {

@@ -35,6 +35,10 @@ func (q *Queue[T]) Push(elem T) {
 	q.q = append(q.q, elem)
 }
 
+func (q *Queue[T]) PushAll(elems ...T) {
+	q.q = append(q.q, elems...)
+}
+
 func (q *Queue[T]) Pop() (elem T, ok bool) {
 	if len(q.q) < 1 {
 		ok = false
@@ -80,6 +84,10 @@ func (l *List[T]) Get(index int) (elem T, ok bool) {
 	elem = l.l[index]
 	ok = true
 	return
+}
+
+func (l *List[T]) Iter() []T {
+	return l.l
 }
 
 func (l *List[T]) Reset() {

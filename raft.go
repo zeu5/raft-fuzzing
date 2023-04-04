@@ -66,7 +66,7 @@ func (r *RaftEnvironment) Reset() []pb.Message {
 		Type: pb.MsgProp,
 		From: uint64(0),
 		Entries: []pb.Entry{
-			{Data: []byte("testing")},
+			{Data: []byte("1")},
 		},
 	}}
 	r.makeNodes()
