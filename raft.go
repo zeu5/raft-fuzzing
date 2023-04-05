@@ -107,7 +107,7 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 
 	// Take random number of ticks and update node states
 	for _, node := range r.nodes {
-		ticks := ctx.RandomIntegerChoice(r.config.ElectionTick)
+		ticks := max(1, int(r.config.ElectionTick/5)) // ctx.RandomIntegerChoice(r.config.ElectionTick)
 		for i := 0; i < ticks; i++ {
 			node.Tick()
 		}

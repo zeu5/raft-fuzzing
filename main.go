@@ -18,6 +18,7 @@ func main() {
 	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 50, "Horizon of each episode")
 	rootCommand.PersistentFlags().StringVarP(&saveFile, "save", "s", "save.png", "Save the plot to the specified file")
 	rootCommand.AddCommand(FuzzCommand())
+	rootCommand.AddCommand(OneCommand())
 
 	if err := rootCommand.Execute(); err != nil {
 		fmt.Println(err)
@@ -40,6 +41,15 @@ func FuzzCommand() *cobra.Command {
 				},
 			})
 			return fuzzer.Run()
+		},
+	}
+}
+
+func OneCommand() *cobra.Command {
+	return &cobra.Command{
+		Use: "one",
+		Run: func(cmd *cobra.Command, args []string) {
+			CompareMutations(episodes, horizon, saveFile)
 		},
 	}
 }

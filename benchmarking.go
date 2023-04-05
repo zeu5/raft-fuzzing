@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
@@ -46,25 +48,24 @@ func (c *Comparision) record() {
 	p.X.Label.Text = "Iteration"
 	p.Y.Label.Text = "States covered"
 
-	datasetPlotter := func(name string) plotter.XYs {
-		points := make(plotter.XYs, len(c.coverages[name]))
-		for i, v := range c.coverages[name] {
-			points[i] = plotter.XY{
-				X: float64(i),
-				Y: float64(v),
+	i := 0
+	for name, points := range c.coverages {
+		plotPoints := make([]plotter.XY, len(points))
+		for j, point := range points {
+			plotPoints[j] = plotter.XY{
+				X: float64(j),
+				Y: float64(point),
 			}
 		}
-		return points
-	}
-	i := 0
-	for name := range c.coverages {
-		line, err := plotter.NewLine(datasetPlotter(name))
+		line, err := plotter.NewLine(plotter.XYs(plotPoints))
 		if err != nil {
 			continue
 		}
 		line.Color = plotutil.Color(i)
 		p.Add(line)
 		p.Legend.Add(name, line)
+
+		fmt.Printf("Coverage for mutator %s is %d\n", name, points[len(points)-1])
 		i++
 	}
 	p.Save(4*vg.Inch, 4*vg.Inch, c.plotFile)

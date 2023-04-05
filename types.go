@@ -86,6 +86,14 @@ func (l *List[T]) Get(index int) (elem T, ok bool) {
 	return
 }
 
+func (l *List[T]) Set(index int, elem T) bool {
+	if len(l.l) <= index {
+		return false
+	}
+	l.l[index] = elem
+	return true
+}
+
 func (l *List[T]) Iter() []T {
 	return l.l
 }
@@ -101,4 +109,11 @@ func (l *List[T]) AsList() []T {
 type State struct {
 	Repr string
 	Key  int64
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
