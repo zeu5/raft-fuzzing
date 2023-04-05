@@ -22,6 +22,7 @@ func NewComparision(plotFile string, config *FuzzerConfig) *Comparision {
 		plotFile:  plotFile,
 		config:    config,
 		coverages: make(map[string][]int),
+		mutators:  make(map[string]Mutator),
 	}
 }
 
