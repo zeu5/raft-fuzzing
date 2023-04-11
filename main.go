@@ -39,10 +39,12 @@ func FuzzCommand() *cobra.Command {
 				TLCAddr:    "127.0.0.1:2023",
 				Mutator:    &EmptyMutator{},
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
-					Replicas:      3,
+					Replicas:      replicas,
 					ElectionTick:  10,
 					HeartbeatTick: 2,
+					NumRequests:   requests,
 				},
+				MutPerTrace: 5,
 			})
 			return fuzzer.Run()
 		},

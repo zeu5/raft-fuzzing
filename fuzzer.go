@@ -127,6 +127,10 @@ func (f *Fuzzer) GetNextMessage() (message pb.Message, ok bool) {
 				availableNodes = append(availableNodes, node)
 			}
 		}
+		if len(availableNodes) == 0 {
+			ok = false
+			return
+		}
 		randIndex := f.rand.Intn(len(availableNodes))
 		nextNode = availableNodes[randIndex]
 	}
