@@ -38,9 +38,11 @@ func (c *Comparision) Run() {
 		c.config.Mutator = m
 		fuzzer := NewFuzzer(c.config)
 		for i := 0; i < c.config.Iterations; i++ {
+			fmt.Printf("\rRunning for mutator: %s, Episode: %d/%d", name, i+1, c.config.Iterations)
 			fuzzer.RunIteration(i)
 			c.coverages[name] = append(c.coverages[name], fuzzer.Coverage())
 		}
+		fmt.Println("")
 	}
 	c.record()
 }

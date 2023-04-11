@@ -13,6 +13,7 @@ type RaftEnvironmentConfig struct {
 	Replicas      int
 	ElectionTick  int
 	HeartbeatTick int
+	NumRequests   int
 }
 
 type RaftEnvironment struct {
@@ -62,13 +63,16 @@ func (r *RaftEnvironment) makeNodes() {
 }
 
 func (r *RaftEnvironment) Reset() []pb.Message {
-	messages := []pb.Message{{
-		Type: pb.MsgProp,
-		From: uint64(0),
-		Entries: []pb.Entry{
-			{Data: []byte("1")},
-		},
-	}}
+	messages := make([]pb.Message, r.config.NumRequests)
+	for i := 0; i < r.config.NumRequests; i++ {
+		messages[i] = pb.Message{
+			Type: pb.MsgProp,
+			From: uint64(0),
+			Entries: []pb.Entry{
+				{Data: []byte(strconv.Itoa(i + 1))},
+			},
+		}
+	}
 	r.makeNodes()
 	return messages
 }

@@ -1,11 +1,10 @@
-module github.com/zeu5/raft-rl-test
+module github.com/zeu5/raft-fuzzing
 
 go 1.18
 
 require (
 	github.com/spf13/cobra v1.6.1
 	go.etcd.io/raft/v3 v3.0.0-20230228002126-d9907d6ac6ba
-	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 )
 
@@ -20,7 +19,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

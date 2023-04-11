@@ -37,6 +37,9 @@ func (c *ChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]) 
 	}
 	toFlip := make(map[int]bool)
 	numIndices := len(booleanChoiceIndices)
+	if numIndices == 0 {
+		return nil, false
+	}
 	for len(toFlip) < c.NumFlips {
 		next := booleanChoiceIndices[c.rand.Intn(numIndices)]
 		if _, ok := toFlip[next]; !ok {
@@ -81,6 +84,9 @@ func (d *SkipNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 		}
 	}
 	numNodeChoiceIndices := len(nodeChoiceIndices)
+	if numNodeChoiceIndices == 0 {
+		return nil, false
+	}
 	toSkip := make(map[int]bool)
 	for len(toSkip) < d.NumSkips {
 		next := nodeChoiceIndices[d.rand.Intn(numNodeChoiceIndices)]
@@ -119,6 +125,9 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 		}
 	}
 	numNodeChoiceIndices := len(nodeChoiceIndices)
+	if numNodeChoiceIndices == 0 {
+		return nil, false
+	}
 	toSwap := make(map[int]map[int]bool)
 	for len(toSwap) < s.NumSwaps {
 		i := nodeChoiceIndices[s.rand.Intn(numNodeChoiceIndices)]

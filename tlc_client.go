@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -34,7 +34,7 @@ func (c *TLCClient) SendTrace(trace *List[*Event]) ([]State, error) {
 		return []State{}, fmt.Errorf("error sending trace to tlc: %s", err)
 	}
 	defer res.Body.Close()
-	resData, err := ioutil.ReadAll(res.Body)
+	resData, err := io.ReadAll(res.Body)
 	if err != nil {
 		return []State{}, fmt.Errorf("error reading response from tlc: %s", err)
 	}

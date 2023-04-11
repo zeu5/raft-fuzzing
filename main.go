@@ -10,6 +10,8 @@ var (
 	episodes int
 	horizon  int
 	saveFile string
+	replicas int
+	requests int
 )
 
 func main() {
@@ -17,6 +19,8 @@ func main() {
 	rootCommand.PersistentFlags().IntVarP(&episodes, "episodes", "e", 10000, "Number of episodes to run")
 	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 50, "Horizon of each episode")
 	rootCommand.PersistentFlags().StringVarP(&saveFile, "save", "s", "save.png", "Save the plot to the specified file")
+	rootCommand.PersistentFlags().IntVarP(&replicas, "replicas", "r", 3, "Num of replicas to run in environment")
+	rootCommand.PersistentFlags().IntVar(&requests, "requests", 1, "Num of initial requests to serve")
 	rootCommand.AddCommand(FuzzCommand())
 	rootCommand.AddCommand(OneCommand())
 
@@ -49,7 +53,7 @@ func OneCommand() *cobra.Command {
 	return &cobra.Command{
 		Use: "one",
 		Run: func(cmd *cobra.Command, args []string) {
-			CompareMutations(episodes, horizon, saveFile)
+			CompareMutations(episodes, horizon, saveFile, replicas, requests)
 		},
 	}
 }
