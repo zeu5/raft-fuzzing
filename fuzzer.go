@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"math/rand"
 	"time"
 
@@ -22,6 +25,8 @@ type Fuzzer struct {
 	raftEnvironment             *RaftEnvironment
 	tlcClient                   *TLCClient
 	statesMap                   map[int64]bool
+	tracesMap                   map[string]bool
+	statesTracesMap             map[string]bool
 }
 
 type FuzzerConfig struct {
@@ -49,6 +54,8 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		raftEnvironment:             NewRaftEnvironment(config.RaftEnvironmentConfig),
 		tlcClient:                   NewTLCClient(config.TLCAddr),
 		statesMap:                   make(map[int64]bool),
+		tracesMap:                   make(map[string]bool),
+		statesTracesMap:             make(map[string]bool),
 	}
 	for i := 0; i <= f.config.RaftEnvironmentConfig.Replicas; i++ {
 		f.nodes = append(f.nodes, uint64(i))
@@ -57,8 +64,18 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	return f
 }
 
-func (f *Fuzzer) Coverage() int {
-	return len(f.statesMap)
+type CoverageStats struct {
+	UniqueStates      int
+	UniqueTraces      int
+	UniqueStateTraces int
+}
+
+func (f *Fuzzer) Coverage() CoverageStats {
+	return CoverageStats{
+		UniqueStates:      len(f.statesMap),
+		UniqueTraces:      len(f.tracesMap),
+		UniqueStateTraces: len(f.statesTracesMap),
+	}
 }
 
 func (f *Fuzzer) GetRandomBoolean() (choice bool) {
@@ -188,6 +205,13 @@ func (f *Fuzzer) RunIteration(_ int) {
 			f.messageQueues[m.To].Push(m)
 		}
 	}
+	bs, _ := json.Marshal(f.curTrace)
+	sum := sha256.Sum256(bs)
+	hash := hex.EncodeToString(sum[:])
+	if _, ok := f.tracesMap[hash]; !ok {
+		f.tracesMap[hash] = true
+	}
+
 	f.mutatedNodeChoices.Reset()
 	f.mutatedRandomBooleanChoices.Reset()
 	f.mutatedRandomIntegerChoices.Reset()
@@ -200,6 +224,12 @@ func (f *Fuzzer) RunIteration(_ int) {
 				haveNewState = true
 				f.statesMap[s.Key] = true
 			}
+		}
+		bs, _ := json.Marshal(tlcStates)
+		sum := sha256.Sum256(bs)
+		stateTraceHash := hex.EncodeToString(sum[:])
+		if _, ok := f.statesTracesMap[stateTraceHash]; !ok {
+			f.statesTracesMap[stateTraceHash] = true
 		}
 		if haveNewState {
 			mutatedTraces := make([]*List[*SchedulingChoice], 0)

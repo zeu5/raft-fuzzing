@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 type Event struct {
 	Name   string
 	Params map[string]interface{}
@@ -16,9 +18,9 @@ type SchedulingChoiceType string
 
 type SchedulingChoice struct {
 	Type          SchedulingChoiceType
-	NodeID        uint64
-	BooleanChoice bool
-	IntegerChoice int
+	NodeID        uint64 `json:",omitempty"`
+	BooleanChoice bool   `json:",omitempty"`
+	IntegerChoice int    `json:",omitempty"`
 }
 
 type Queue[T any] struct {
@@ -104,6 +106,10 @@ func (l *List[T]) Reset() {
 
 func (l *List[T]) AsList() []T {
 	return l.l
+}
+
+func (l *List[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(l.l)
 }
 
 type State struct {
