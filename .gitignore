@@ -18,3 +18,4 @@
 .vscode
 raft-fuzzing
 *.png
+cov.json
