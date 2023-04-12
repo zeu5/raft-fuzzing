@@ -16,6 +16,9 @@
 
 # IDE related files
 .vscode
+
+# Project specific files
 raft-fuzzing
 *.png
 cov.json
+traces

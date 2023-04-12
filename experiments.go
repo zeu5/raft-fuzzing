@@ -8,13 +8,13 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 		Mutator:    &EmptyMutator{},
 		RaftEnvironmentConfig: RaftEnvironmentConfig{
 			Replicas:      replicas,
-			ElectionTick:  10,
+			ElectionTick:  16,
 			HeartbeatTick: 2,
 			NumRequests:   requests,
 		},
 		MutPerTrace: 5,
 	})
-	c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023"))
+	c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces"))
 	c.AddMutator("random", &EmptyMutator{})
 	c.AddMutator("flipChoices", NewChoiceMutator(5))
 	c.AddMutator("skipNodes", NewSkipNodeMutator(5))

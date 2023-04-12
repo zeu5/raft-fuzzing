@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	pb "go.etcd.io/raft/v3/raftpb"
+	pb "github.com/zeu5/raft-fuzzing/raft/raftpb"
 )
 
 type Fuzzer struct {
@@ -45,6 +45,7 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		rand:                        rand.New(rand.NewSource(time.Now().UnixNano())),
 		raftEnvironment:             NewRaftEnvironment(config.RaftEnvironmentConfig),
 	}
+	f.raftEnvironment.Setup(&FuzzContext{fuzzer: f})
 	for i := 0; i <= f.config.RaftEnvironmentConfig.Replicas; i++ {
 		f.nodes = append(f.nodes, uint64(i))
 		f.messageQueues[uint64(i)] = NewQueue[pb.Message]()
@@ -108,7 +109,7 @@ func (f *Fuzzer) GetNextMessage() (message pb.Message, ok bool) {
 		nextNode = f.config.Strategy.GetNextNode(availableNodes)
 	}
 	message, ok = f.messageQueues[nextNode].Pop()
-	if ok {
+	if ok && message.To != 0 {
 		f.curEventTrace.Append(&Event{
 			Name: "DeliverMessage",
 			Params: map[string]interface{}{

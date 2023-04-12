@@ -3,11 +3,45 @@ package main
 import (
 	"io"
 	"log"
+	"math/rand"
 	"strconv"
+	"sync"
+	"time"
 
-	"go.etcd.io/raft/v3"
-	pb "go.etcd.io/raft/v3/raftpb"
+	"github.com/zeu5/raft-fuzzing/raft"
+	pb "github.com/zeu5/raft-fuzzing/raft/raftpb"
 )
+
+type RaftRand struct {
+	rand *rand.Rand
+	ctx  *FuzzContext
+	lock *sync.Mutex
+}
+
+var _ raft.Rand = &RaftRand{}
+
+func NewRaftRand() *RaftRand {
+	return &RaftRand{
+		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
+		ctx:  nil,
+		lock: new(sync.Mutex),
+	}
+}
+
+func (r *RaftRand) Intn(max int) int {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	if r.ctx == nil {
+		return r.rand.Intn(max)
+	}
+	return r.ctx.RandomIntegerChoice(max)
+}
+
+func (r *RaftRand) UpdateCtx(ctx *FuzzContext) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.ctx = ctx
+}
 
 type RaftEnvironmentConfig struct {
 	Replicas      int
@@ -21,6 +55,7 @@ type RaftEnvironment struct {
 	nodes          map[uint64]*raft.RawNode
 	storages       map[uint64]*raft.MemoryStorage
 	curStates      map[uint64]raft.Status
+	raftRand       *RaftRand
 	curCommitIndex uint64
 }
 
@@ -31,9 +66,14 @@ func NewRaftEnvironment(config RaftEnvironmentConfig) *RaftEnvironment {
 		storages:       make(map[uint64]*raft.MemoryStorage),
 		curStates:      make(map[uint64]raft.Status),
 		curCommitIndex: 0,
+		raftRand:       NewRaftRand(),
 	}
 	r.makeNodes()
 	return r
+}
+
+func (r *RaftEnvironment) Setup(ctx *FuzzContext) {
+	r.raftRand.UpdateCtx(ctx)
 }
 
 func (r *RaftEnvironment) makeNodes() {
@@ -52,6 +92,7 @@ func (r *RaftEnvironment) makeNodes() {
 			Storage:                   storage,
 			MaxSizePerMsg:             1024 * 1024,
 			MaxInflightMsgs:           256,
+			Rand:                      r.raftRand,
 			MaxUncommittedEntriesSize: 1 << 30,
 			Logger:                    &raft.DefaultLogger{Logger: log.New(io.Discard, "", 0)},
 		})
@@ -106,6 +147,7 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 		}
 	} else {
 		node := r.nodes[m.To]
+
 		node.Step(m)
 	}
 
