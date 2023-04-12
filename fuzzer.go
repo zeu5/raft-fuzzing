@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"math/rand"
 	"time"
 
@@ -14,7 +11,6 @@ type Fuzzer struct {
 	messageQueues               map[uint64]*Queue[pb.Message]
 	nodes                       []uint64
 	config                      *FuzzerConfig
-	mutator                     Mutator
 	mutatedTracesQueue          *Queue[*List[*SchedulingChoice]]
 	mutatedNodeChoices          *Queue[uint64]
 	curEventTrace               *List[*Event]
@@ -23,17 +19,14 @@ type Fuzzer struct {
 	mutatedRandomIntegerChoices *Queue[int]
 	rand                        *rand.Rand
 	raftEnvironment             *RaftEnvironment
-	tlcClient                   *TLCClient
-	statesMap                   map[int64]bool
-	tracesMap                   map[string]bool
-	statesTracesMap             map[string]bool
 }
 
 type FuzzerConfig struct {
 	Iterations            int
 	Steps                 int
-	TLCAddr               string
 	Mutator               Mutator
+	Guider                Guider
+	Strategy              Strategy
 	RaftEnvironmentConfig RaftEnvironmentConfig
 	MutPerTrace           int
 }
@@ -43,7 +36,6 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		config:                      config,
 		nodes:                       make([]uint64, 0),
 		messageQueues:               make(map[uint64]*Queue[pb.Message]),
-		mutator:                     config.Mutator,
 		mutatedTracesQueue:          NewQueue[*List[*SchedulingChoice]](),
 		mutatedNodeChoices:          NewQueue[uint64](),
 		curEventTrace:               NewList[*Event](),
@@ -52,10 +44,6 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		mutatedRandomIntegerChoices: NewQueue[int](),
 		rand:                        rand.New(rand.NewSource(time.Now().UnixNano())),
 		raftEnvironment:             NewRaftEnvironment(config.RaftEnvironmentConfig),
-		tlcClient:                   NewTLCClient(config.TLCAddr),
-		statesMap:                   make(map[int64]bool),
-		tracesMap:                   make(map[string]bool),
-		statesTracesMap:             make(map[string]bool),
 	}
 	for i := 0; i <= f.config.RaftEnvironmentConfig.Replicas; i++ {
 		f.nodes = append(f.nodes, uint64(i))
@@ -64,25 +52,11 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	return f
 }
 
-type CoverageStats struct {
-	UniqueStates      int
-	UniqueTraces      int
-	UniqueStateTraces int
-}
-
-func (f *Fuzzer) Coverage() CoverageStats {
-	return CoverageStats{
-		UniqueStates:      len(f.statesMap),
-		UniqueTraces:      len(f.tracesMap),
-		UniqueStateTraces: len(f.statesTracesMap),
-	}
-}
-
 func (f *Fuzzer) GetRandomBoolean() (choice bool) {
 	if f.mutatedRandomBooleanChoices.Size() > 0 {
 		choice, _ = f.mutatedRandomBooleanChoices.Pop()
 	} else {
-		choice = f.rand.Intn(2) == 0
+		choice = f.config.Strategy.GetRandomBoolean()
 	}
 	f.curEventTrace.Append(&Event{
 		Name: "RandomBooleanChoice",
@@ -101,7 +75,7 @@ func (f *Fuzzer) GetRandomInteger(max int) (choice int) {
 	if f.mutatedRandomIntegerChoices.Size() > 0 {
 		choice, _ = f.mutatedRandomIntegerChoices.Pop()
 	} else {
-		choice = f.rand.Intn(max)
+		choice = f.config.Strategy.GetRandomInteger(max)
 	}
 	f.curEventTrace.Append(&Event{
 		Name: "RandomIntegerChoice",
@@ -131,25 +105,26 @@ func (f *Fuzzer) GetNextMessage() (message pb.Message, ok bool) {
 			ok = false
 			return
 		}
-		randIndex := f.rand.Intn(len(availableNodes))
-		nextNode = availableNodes[randIndex]
+		nextNode = f.config.Strategy.GetNextNode(availableNodes)
 	}
 	message, ok = f.messageQueues[nextNode].Pop()
-	f.curEventTrace.Append(&Event{
-		Name: "DeliverMessage",
-		Params: map[string]interface{}{
-			"type":     message.Type.String(),
-			"term":     message.Term,
-			"from":     message.From,
-			"to":       message.To,
-			"log_term": message.LogTerm,
-			"entries":  message.Entries,
-			"index":    message.Index,
-			"commit":   message.Commit,
-			"vote":     message.Vote,
-			"reject":   message.Reject,
-		},
-	})
+	if ok {
+		f.curEventTrace.Append(&Event{
+			Name: "DeliverMessage",
+			Params: map[string]interface{}{
+				"type":     message.Type.String(),
+				"term":     message.Term,
+				"from":     message.From,
+				"to":       message.To,
+				"log_term": message.LogTerm,
+				"entries":  message.Entries,
+				"index":    message.Index,
+				"commit":   message.Commit,
+				"vote":     message.Vote,
+				"reject":   message.Reject,
+			},
+		})
+	}
 	f.curTrace.Append(&SchedulingChoice{
 		Type:   Node,
 		NodeID: nextNode,
@@ -209,55 +184,31 @@ func (f *Fuzzer) RunIteration(_ int) {
 			f.messageQueues[m.To].Push(m)
 		}
 	}
-	bs, _ := json.Marshal(f.curTrace)
-	sum := sha256.Sum256(bs)
-	hash := hex.EncodeToString(sum[:])
-	if _, ok := f.tracesMap[hash]; !ok {
-		f.tracesMap[hash] = true
-	}
-
 	f.mutatedNodeChoices.Reset()
 	f.mutatedRandomBooleanChoices.Reset()
 	f.mutatedRandomIntegerChoices.Reset()
-	// Transmit trace to TLC and mutate
-	if tlcStates, err := f.tlcClient.SendTrace(f.curEventTrace); err == nil {
-		haveNewState := false
-		for _, s := range tlcStates {
-			_, ok := f.statesMap[s.Key]
-			if !ok {
-				haveNewState = true
-				f.statesMap[s.Key] = true
+	if ok := f.config.Guider.Check(f.curTrace, f.curEventTrace); ok {
+		mutatedTraces := make([]*List[*SchedulingChoice], 0)
+		for i := 0; i < f.config.MutPerTrace; i++ {
+			new, ok := f.config.Mutator.Mutate(f.curTrace, f.curEventTrace)
+			if ok {
+				mutatedTraces = append(mutatedTraces, new)
 			}
 		}
-		bs, _ := json.Marshal(tlcStates)
-		sum := sha256.Sum256(bs)
-		stateTraceHash := hex.EncodeToString(sum[:])
-		if _, ok := f.statesTracesMap[stateTraceHash]; !ok {
-			f.statesTracesMap[stateTraceHash] = true
+		if len(mutatedTraces) > 0 {
+			f.mutatedTracesQueue.PushAll(mutatedTraces...)
 		}
-		if haveNewState {
-			mutatedTraces := make([]*List[*SchedulingChoice], 0)
-			for i := 0; i < f.config.MutPerTrace; i++ {
-				new, ok := f.mutator.Mutate(f.curTrace, f.curEventTrace)
-				if ok {
-					mutatedTraces = append(mutatedTraces, new)
-				}
-			}
-			if len(mutatedTraces) > 0 {
-				f.mutatedTracesQueue.PushAll(mutatedTraces...)
-			}
-		}
-		if f.mutatedTracesQueue.Size() > 0 {
-			mutatedTrace, _ := f.mutatedTracesQueue.Pop()
-			for _, choice := range mutatedTrace.AsList() {
-				switch choice.Type {
-				case RandomBoolean:
-					f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
-				case RandomInteger:
-					f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
-				case Node:
-					f.mutatedNodeChoices.Push(choice.NodeID)
-				}
+	}
+	if f.mutatedTracesQueue.Size() > 0 {
+		mutatedTrace, _ := f.mutatedTracesQueue.Pop()
+		for _, choice := range mutatedTrace.AsList() {
+			switch choice.Type {
+			case RandomBoolean:
+				f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
+			case RandomInteger:
+				f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
+			case Node:
+				f.mutatedNodeChoices.Push(choice.NodeID)
 			}
 		}
 	}

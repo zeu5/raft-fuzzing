@@ -14,6 +14,7 @@ import (
 type Comparision struct {
 	config   *FuzzerConfig
 	mutators map[string]Mutator
+	guiders  map[string]Guider
 	plotFile string
 
 	coverages map[string][]CoverageStats
@@ -30,19 +31,27 @@ func NewComparision(plotFile string, config *FuzzerConfig) *Comparision {
 
 func (c *Comparision) AddMutator(name string, mutator Mutator) {
 	c.mutators[name] = mutator
-	c.coverages[name] = make([]CoverageStats, 0)
+}
+
+func (c *Comparision) AddGuider(name string, guider Guider) {
+	c.guiders[name] = guider
 }
 
 func (c *Comparision) Run() {
-	for name, m := range c.mutators {
-		c.config.Mutator = m
-		fuzzer := NewFuzzer(c.config)
-		for i := 0; i < c.config.Iterations; i++ {
-			fmt.Printf("\rRunning for mutator: %s, Episode: %d/%d", name, i+1, c.config.Iterations)
-			fuzzer.RunIteration(i)
-			c.coverages[name] = append(c.coverages[name], fuzzer.Coverage())
+	for mutatorName, mutator := range c.mutators {
+		for guiderName, guider := range c.guiders {
+			key := mutatorName + "_" + guiderName
+			c.config.Guider = guider
+			c.config.Mutator = mutator
+			c.coverages[key] = make([]CoverageStats, 0)
+			fuzzer := NewFuzzer(c.config)
+			for i := 0; i < c.config.Iterations; i++ {
+				fmt.Printf("\rRunning for mutator: %s, guider: %s, Episode: %d/%d", mutatorName, guiderName, i+1, c.config.Iterations)
+				fuzzer.RunIteration(i)
+				c.coverages[key] = append(c.coverages[key], guider.Coverage())
+			}
+			fmt.Println("")
 		}
-		fmt.Println("")
 	}
 	c.record()
 }

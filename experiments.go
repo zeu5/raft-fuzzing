@@ -4,7 +4,7 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 	c := NewComparision(saveFile, &FuzzerConfig{
 		Iterations: episodes,
 		Steps:      horizon,
-		TLCAddr:    "127.0.0.1:2023",
+		Strategy:   NewRandomStrategy(),
 		Mutator:    &EmptyMutator{},
 		RaftEnvironmentConfig: RaftEnvironmentConfig{
 			Replicas:      replicas,
@@ -14,6 +14,7 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 		},
 		MutPerTrace: 5,
 	})
+	c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023"))
 	c.AddMutator("random", &EmptyMutator{})
 	c.AddMutator("flipChoices", NewChoiceMutator(5))
 	c.AddMutator("skipNodes", NewSkipNodeMutator(5))
