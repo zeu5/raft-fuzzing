@@ -147,3 +147,46 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 	}
 	return newTrace, false
 }
+
+type SwapIntegerChoiceMutator struct {
+	NumSwaps int
+	rand     *rand.Rand
+}
+
+func NewSwapIntegerChoiceMutator(numswaps int) *SwapIntegerChoiceMutator {
+	return &SwapIntegerChoiceMutator{
+		NumSwaps: numswaps,
+		rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (s *SwapIntegerChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]) (*List[*SchedulingChoice], bool) {
+	integerChoiceIndices := make([]int, 0)
+	for i, choice := range trace.Iter() {
+		if choice.Type == RandomInteger {
+			integerChoiceIndices = append(integerChoiceIndices, i)
+		}
+	}
+	numIntegerChoiceIndices := len(integerChoiceIndices)
+	if numIntegerChoiceIndices == 0 {
+		return nil, false
+	}
+	toSwap := make(map[int]map[int]bool)
+	for len(toSwap) < s.NumSwaps {
+		i := integerChoiceIndices[s.rand.Intn(numIntegerChoiceIndices)]
+		j := integerChoiceIndices[s.rand.Intn(numIntegerChoiceIndices)]
+		if _, ok := toSwap[i]; !ok {
+			toSwap[i] = map[int]bool{j: true}
+		}
+	}
+	newTrace := trace
+	for i, v := range toSwap {
+		for j := range v {
+			first, _ := newTrace.Get(i)
+			second, _ := newTrace.Get(j)
+			newTrace.Set(i, second)
+			newTrace.Set(j, first)
+		}
+	}
+	return newTrace, false
+}
