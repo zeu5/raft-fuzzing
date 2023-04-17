@@ -147,7 +147,6 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 		}
 	} else {
 		node := r.nodes[m.To]
-
 		node.Step(m)
 	}
 

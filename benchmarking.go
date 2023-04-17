@@ -26,6 +26,7 @@ func NewComparision(plotFile string, config *FuzzerConfig) *Comparision {
 		config:    config,
 		coverages: make(map[string][]CoverageStats),
 		mutators:  make(map[string]Mutator),
+		guiders:   make(map[string]Guider),
 	}
 }
 
@@ -38,8 +39,10 @@ func (c *Comparision) AddGuider(name string, guider Guider) {
 }
 
 func (c *Comparision) Run() {
-	for mutatorName, mutator := range c.mutators {
-		for guiderName, guider := range c.guiders {
+	for guiderName, guider := range c.guiders {
+		for mutatorName, mutator := range c.mutators {
+			// Reset guider
+			guider.Reset()
 			key := mutatorName + "_" + guiderName
 			c.config.Guider = guider
 			c.config.Mutator = mutator

@@ -19,6 +19,7 @@ type CoverageStats struct {
 type Guider interface {
 	Check(*List[*SchedulingChoice], *List[*Event]) bool
 	Coverage() CoverageStats
+	Reset()
 }
 
 type TLCStateGuider struct {
@@ -49,6 +50,12 @@ func NewTLCStateGuider(tlcAddr, recordPath string) *TLCStateGuider {
 		recordPath:     recordPath,
 		count:          0,
 	}
+}
+
+func (t *TLCStateGuider) Reset() {
+	t.statesMap = make(map[int64]bool)
+	t.tracesMap = make(map[string]bool)
+	t.stateTracesMap = make(map[string]bool)
 }
 
 func (t *TLCStateGuider) Coverage() CoverageStats {
