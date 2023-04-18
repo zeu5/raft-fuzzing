@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -174,9 +175,12 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 
 func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 	for id, node := range r.nodes {
+		newStatus := node.Status()
 		// Compare state and add timeouts
 		old := r.curStates[id].RaftState
-		new := node.Status().RaftState
+		new := newStatus.RaftState
+		oldTerm := r.curStates[id].Term
+		newTerm := newStatus.Term
 		if old != new && new == raft.StateLeader {
 			ctx.AddEvent(&Event{
 				Name: "BecomeLeader",
@@ -184,7 +188,7 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 					"node": id,
 				},
 			})
-		} else if old != new && new == raft.StateCandidate {
+		} else if (old != new && new == raft.StateCandidate) || (oldTerm < newTerm && old == new && new == raft.StateCandidate) {
 			ctx.AddEvent(&Event{
 				Name: "Timeout",
 				Params: map[string]interface{}{
@@ -195,7 +199,7 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 		// Compare commit index of leader and add advance commit index
 		if new == raft.StateLeader {
 			oldCommitIndex := r.curStates[id].Commit
-			newCommitIndex := node.Status().Commit
+			newCommitIndex := newStatus.Commit
 			if newCommitIndex > oldCommitIndex {
 				ctx.AddEvent(&Event{
 					Name: "AdvanceCommitIndex",
@@ -205,6 +209,14 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 				})
 			}
 		}
-		r.curStates[id] = node.Status()
+		r.curStates[id] = newStatus
+		ctx.AddEvent(&Event{
+			Name: "StateUpdate",
+			Params: map[string]interface{}{
+				"node": id,
+				"state": fmt.Sprintf(`{"id":"%x","term":%d,"vote":"%x","commit":%d,"lead":"%x","raftState":%q,"applied":%d}`,
+					newStatus.ID, newStatus.Term, newStatus.Vote, newStatus.Commit, newStatus.Lead, newStatus.RaftState, newStatus.Applied),
+			},
+		})
 	}
 }

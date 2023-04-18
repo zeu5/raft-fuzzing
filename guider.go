@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -90,6 +91,8 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 		if _, ok := t.stateTracesMap[stateTraceHash]; !ok {
 			t.stateTracesMap[stateTraceHash] = true
 		}
+	} else {
+		panic(fmt.Sprintf("error connecting to tlc: %s", err))
 	}
 	return haveNewState
 }
