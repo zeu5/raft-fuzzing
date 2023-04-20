@@ -78,9 +78,9 @@ func (r *RaftEnvironment) Setup(ctx *FuzzContext) {
 }
 
 func (r *RaftEnvironment) makeNodes() {
-	peers := make([]raft.Peer, r.config.Replicas)
+	confChanges := make([]pb.ConfChangeV2, r.config.Replicas)
 	for i := 0; i < r.config.Replicas; i++ {
-		peers[i] = raft.Peer{ID: uint64(i + 1)}
+		confChanges[i] = pb.ConfChange{NodeID: uint64(i + 1), Type: pb.ConfChangeAddNode}.AsV2()
 	}
 	for i := 0; i < r.config.Replicas; i++ {
 		storage := raft.NewMemoryStorage()
@@ -97,7 +97,9 @@ func (r *RaftEnvironment) makeNodes() {
 			MaxUncommittedEntriesSize: 1 << 30,
 			Logger:                    &raft.DefaultLogger{Logger: log.New(io.Discard, "", 0)},
 		})
-		node.Bootstrap(peers)
+		for _, c := range confChanges {
+			node.ApplyConfChange(c)
+		}
 		r.curStates[nodeID] = node.Status()
 		r.nodes[nodeID] = node
 	}
