@@ -22,3 +22,6 @@ raft-fuzzing
 *.png
 cov.json
 traces
+
+__pycache__
+*.pyc

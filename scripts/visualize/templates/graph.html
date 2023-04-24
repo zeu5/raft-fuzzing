@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Graph visualization</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="static/viz.js"></script>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            width: 100%;
+            height: 100%;
+        }
+
+        svg {
+            background-color: grey;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <label for="graph">Graph:</label>
+        <input type="text" name="graph" id="graph">
+        <button id="get-graph" type="submit">Get</button>
+    </div>
+    <svg width="750px" height="750px" viewBox="0 0 480 480">
+    </svg>
+    <script>
+        var shape = document.getElementsByTagName("svg")[0];
+        var mouseStartPosition = { x: 0, y: 0 };
+        var mousePosition = { x: 0, y: 0 };
+        var viewboxStartPosition = { x: 0, y: 0 };
+        var viewboxPosition = { x: 0, y: 0 };
+        var viewboxSize = { x: 480, y: 480 };
+        var viewboxScale = 1.0;
+
+        var mouseDown = false;
+
+        shape.addEventListener("mousemove", mousemove);
+        shape.addEventListener("mousedown", mousedown);
+        shape.addEventListener("wheel", wheel);
+
+        function mousedown(e) {
+            mouseStartPosition.x = e.pageX;
+            mouseStartPosition.y = e.pageY;
+
+            viewboxStartPosition.x = viewboxPosition.x;
+            viewboxStartPosition.y = viewboxPosition.y;
+
+            window.addEventListener("mouseup", mouseup);
+
+            mouseDown = true;
+        }
+
+        function setviewbox() {
+            var vp = { x: 0, y: 0 };
+            var vs = { x: 0, y: 0 };
+
+            vp.x = viewboxPosition.x;
+            vp.y = viewboxPosition.y;
+
+            vs.x = viewboxSize.x * viewboxScale;
+            vs.y = viewboxSize.y * viewboxScale;
+
+            shape.setAttribute("viewBox", vp.x + " " + vp.y + " " + vs.x + " " + vs.y);
+        }
+
+        function mousemove(e) {
+            mousePosition.x = e.offsetX;
+            mousePosition.y = e.offsetY;
+
+            if (mouseDown) {
+                viewboxPosition.x = viewboxStartPosition.x + (mouseStartPosition.x - e.pageX);
+                viewboxPosition.y = viewboxStartPosition.y + (mouseStartPosition.y - e.pageY);
+
+                setviewbox();
+            }
+        }
+
+        function mouseup(e) {
+            window.removeEventListener("mouseup", mouseup);
+            mouseDown = false;
+        }
+
+        function wheel(e) {
+            var scale = (e.deltaY < 0) ? 0.97 : 1.03;
+
+            if ((viewboxScale * scale < 8.) && (viewboxScale * scale > 1. / 256.)) {
+                var mpos = { x: mousePosition.x * viewboxScale, y: mousePosition.y * viewboxScale };
+                var vpos = { x: viewboxPosition.x, y: viewboxPosition.y };
+                var cpos = { x: mpos.x + vpos.x, y: mpos.y + vpos.y }
+
+                viewboxPosition.x = (viewboxPosition.x - cpos.x) * scale + cpos.x;
+                viewboxPosition.y = (viewboxPosition.y - cpos.y) * scale + cpos.y;
+                viewboxScale *= scale;
+
+                setviewbox();
+            }
+        }
+    </script>
+</body>
+
+</html>

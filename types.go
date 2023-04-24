@@ -18,9 +18,9 @@ type SchedulingChoiceType string
 
 type SchedulingChoice struct {
 	Type          SchedulingChoiceType
-	NodeID        uint64 `json:",omitempty"`
-	BooleanChoice bool   `json:",omitempty"`
-	IntegerChoice int    `json:",omitempty"`
+	NodeID        uint64
+	BooleanChoice bool `json:",omitempty"`
+	IntegerChoice int  `json:",omitempty"`
 }
 
 type Queue[T any] struct {

@@ -10,6 +10,7 @@ def analyze(graph):
             
     nodes = graph["Nodes"]
     q = list(start_states)
+    edges = dict()
 
     while len(q) != 0:
         cur = q.pop(0)
@@ -29,11 +30,27 @@ def analyze(graph):
     
         if "Next" in nodes[cur]:
             for next in nodes[cur]["Next"].keys():
+                edges[(cur, next)] = [cur,next]
                 q.append(next)
+
+    depths = dict()
+    for node in graph["Nodes"].values():
+        if "Sibling" in node:
+            continue
+        if node["Depth"] not in depths:
+            depths[node["Depth"]] = set()
+        depths[node["Depth"]].add(node["Key"])
+    
+    for d in depths:
+        d_nodes = list(depths[d])
+        d_nodes.sort()
+        for (i,n) in enumerate(d_nodes):
+            nodes[str(n)]["Sibling"] = i
 
     new_graph = {
         "Nodes": nodes,
-        "StartStates": list(start_states)
+        "StartStates": list(start_states),
+        "Edges": [edges[e] for e in edges],
     }
     return new_graph
 
