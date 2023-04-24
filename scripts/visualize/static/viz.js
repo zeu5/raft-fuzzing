@@ -7,6 +7,8 @@ $(() => {
 
 function viz_graph(graph) {
 
+    d3.select("svg").select("g").remove();
+
     var maxVisits = 0
     for (var n in graph.Nodes) {
         var node = graph.Nodes[n];
@@ -21,7 +23,7 @@ function viz_graph(graph) {
     svg.append("g")
         .attr("stroke", "black")
         .selectAll("circle")
-        .data(Object.values(graph.Nodes))
+        .data(Object.values(graph.Nodes), d => d.Key)
         .join("circle")
         .attr("cx", d => d.Sibling * 20 + 10)
         .attr("cy", d => d.Depth * 20)
