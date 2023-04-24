@@ -36,8 +36,8 @@ func FuzzCommand() *cobra.Command {
 			fuzzer := NewFuzzer(&FuzzerConfig{
 				Iterations: episodes,
 				Steps:      horizon,
-				Strategy:   NewRandomStrategy(),
-				Guider:     NewTLCStateGuider("127.0.0.1:2023", "traces"),
+				Strategy:   NewRoundRobinStrategy(replicas),
+				Guider:     NewTLCStateGuider("127.0.0.1:2023", "traces", true),
 				Mutator:    &EmptyMutator{},
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas:      replicas,

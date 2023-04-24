@@ -39,7 +39,7 @@ func (r *RandomStrategy) GetRandomInteger(max int) int {
 type RoundRobinStrategy struct {
 	*RandomStrategy
 	NumNodes int
-	curNode  int
+	curNode  uint64
 }
 
 var _ Strategy = &RoundRobinStrategy{}
@@ -47,7 +47,7 @@ var _ Strategy = &RoundRobinStrategy{}
 func NewRoundRobinStrategy(numNodes int) *RoundRobinStrategy {
 	return &RoundRobinStrategy{
 		RandomStrategy: NewRandomStrategy(),
-		NumNodes:       numNodes,
+		NumNodes:       numNodes + 1,
 		curNode:        0,
 	}
 }
@@ -58,8 +58,11 @@ func (r *RoundRobinStrategy) GetNextNode(available []uint64) uint64 {
 		m[n] = true
 	}
 	next := r.curNode
-	for _, ok := m[uint64(next)]; !ok; next = (next + 1) % r.NumNodes {
+	_, exists := m[next]
+	for !exists {
+		next = (next + 1) % uint64(r.NumNodes)
+		_, exists = m[next]
 	}
-	r.curNode = (next + 1) % r.NumNodes
-	return uint64(next)
+	r.curNode = (next + 1) % uint64(r.NumNodes)
+	return next
 }

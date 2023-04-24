@@ -20,7 +20,7 @@ type CoverageStats struct {
 type Guider interface {
 	Check(*List[*SchedulingChoice], *List[*Event]) bool
 	Coverage() CoverageStats
-	Reset()
+	Reset(string)
 }
 
 type TLCStateGuider struct {
@@ -28,14 +28,16 @@ type TLCStateGuider struct {
 	statesMap      map[int64]bool
 	tracesMap      map[string]bool
 	stateTracesMap map[string]bool
+	visitGraph     *VisitGraph
 	tlcClient      *TLCClient
 	recordPath     string
+	recordTraces   bool
 	count          int
 }
 
 var _ Guider = &TLCStateGuider{}
 
-func NewTLCStateGuider(tlcAddr, recordPath string) *TLCStateGuider {
+func NewTLCStateGuider(tlcAddr, recordPath string, recordTraces bool) *TLCStateGuider {
 	if recordPath != "" {
 		if _, err := os.Stat(recordPath); err == nil {
 			os.RemoveAll(recordPath)
@@ -44,19 +46,28 @@ func NewTLCStateGuider(tlcAddr, recordPath string) *TLCStateGuider {
 	}
 	return &TLCStateGuider{
 		TLCAddr:        tlcAddr,
+		visitGraph:     NewVisitGraph(),
 		statesMap:      make(map[int64]bool),
 		tracesMap:      make(map[string]bool),
 		stateTracesMap: make(map[string]bool),
 		tlcClient:      NewTLCClient(tlcAddr),
 		recordPath:     recordPath,
+		recordTraces:   recordTraces,
 		count:          0,
 	}
 }
 
-func (t *TLCStateGuider) Reset() {
+func (t *TLCStateGuider) Reset(key string) {
 	t.statesMap = make(map[int64]bool)
 	t.tracesMap = make(map[string]bool)
 	t.stateTracesMap = make(map[string]bool)
+
+	if !t.visitGraph.IsEmpty() {
+		t.visitGraph.record(t.recordPath, key)
+		t.count += 1
+	}
+	t.visitGraph = NewVisitGraph()
+
 }
 
 func (t *TLCStateGuider) Coverage() CoverageStats {
@@ -85,6 +96,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 				t.statesMap[s.Key] = true
 			}
 		}
+		t.visitGraph.Update(tlcStates)
 		bs, _ := json.Marshal(tlcStates)
 		sum := sha256.Sum256(bs)
 		stateTraceHash := hex.EncodeToString(sum[:])
@@ -98,7 +110,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 }
 
 func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace *List[*Event], states []State) {
-	if t.recordPath == "" {
+	if !t.recordTraces {
 		return
 	}
 	filePath := path.Join(t.recordPath, strconv.Itoa(t.count)+".json")

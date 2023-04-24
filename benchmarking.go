@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -39,10 +37,9 @@ func (c *Comparision) AddGuider(name string, guider Guider) {
 }
 
 func (c *Comparision) Run() {
+	fmt.Println("Starting comparision...")
 	for guiderName, guider := range c.guiders {
 		for mutatorName, mutator := range c.mutators {
-			// Reset guider
-			guider.Reset()
 			key := mutatorName + "_" + guiderName
 			c.config.Guider = guider
 			c.config.Mutator = mutator
@@ -54,9 +51,13 @@ func (c *Comparision) Run() {
 				c.coverages[key] = append(c.coverages[key], guider.Coverage())
 			}
 			fmt.Println("")
+			// Reset guider
+			guider.Reset(mutatorName)
 		}
 	}
+	fmt.Printf("Completed running.\nStarting analysis...\n")
 	c.record()
+	fmt.Println("Completed analysis.")
 }
 
 func (c *Comparision) record() {
@@ -86,11 +87,4 @@ func (c *Comparision) record() {
 		i++
 	}
 	p.Save(4*vg.Inch, 4*vg.Inch, c.plotFile)
-
-	finalCoverage := make(map[string]CoverageStats)
-	for name, points := range c.coverages {
-		finalCoverage[name] = points[len(points)-1]
-	}
-	cov, _ := json.Marshal(finalCoverage)
-	os.WriteFile("cov.json", cov, 0644)
 }
