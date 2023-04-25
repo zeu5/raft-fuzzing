@@ -223,7 +223,8 @@ func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Li
 	}
 	newTrace := trace.Copy()
 	for i := range toScaleDown {
-		curChoice, ok := newTrace.Get(i)
+		index := integerChoiceIndices[i]
+		curChoice, ok := newTrace.Get(index)
 		if !ok {
 			continue
 		}
@@ -232,7 +233,7 @@ func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Li
 				Type:          RandomInteger,
 				IntegerChoice: s.rand.Intn(curChoice.IntegerChoice),
 			}
-			newTrace.Set(i, newChoice)
+			newTrace.Set(index, newChoice)
 		}
 	}
 
@@ -273,7 +274,8 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 	}
 	newTrace := trace.Copy()
 	for i := range toScaleUp {
-		curChoice, ok := newTrace.Get(i)
+		index := integerChoiceIndices[i]
+		curChoice, ok := newTrace.Get(index)
 		if !ok {
 			continue
 		}
@@ -281,7 +283,7 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 			Type:          RandomInteger,
 			IntegerChoice: max(s.Max, curChoice.IntegerChoice*2),
 		}
-		newTrace.Set(i, newChoice)
+		newTrace.Set(index, newChoice)
 	}
 
 	return newTrace, true

@@ -38,7 +38,7 @@ func FuzzCommand() *cobra.Command {
 				Steps:      horizon,
 				Strategy:   NewRandomStrategy(),
 				Guider:     NewTLCStateGuider("127.0.0.1:2023", "traces", true),
-				Mutator:    &EmptyMutator{},
+				Mutator:    NewScaleUpIntChoiceMutator(5, 20),
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas:      replicas,
 					ElectionTick:  10,
