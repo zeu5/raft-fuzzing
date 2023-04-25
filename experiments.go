@@ -20,6 +20,7 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 	c.AddMutator("flipChoices", NewChoiceMutator(5))
 	c.AddMutator("skipNodes", NewSkipNodeMutator(5))
 	c.AddMutator("swapNodes", NewSwapNodeMutator(5))
+	c.AddMutator("scaleDownInt", NewScaleDownIntChoiceMutator(5))
 
 	c.Run()
 }

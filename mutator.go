@@ -100,7 +100,7 @@ func (d *SkipNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 			newTrace.Append(choice)
 		}
 	}
-	return newTrace, false
+	return newTrace, true
 }
 
 type SwapNodeMutator struct {
@@ -145,7 +145,7 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 			newTrace.Set(j, first)
 		}
 	}
-	return newTrace, false
+	return newTrace, true
 }
 
 type SwapIntegerChoiceMutator struct {
@@ -188,5 +188,51 @@ func (s *SwapIntegerChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Lis
 			newTrace.Set(j, first)
 		}
 	}
-	return newTrace, false
+	return newTrace, true
+}
+
+type ScaleDownIntChoiceMutator struct {
+	NumPoints int
+	rand      *rand.Rand
+}
+
+var _ Mutator = &ScaleDownIntChoiceMutator{}
+
+func NewScaleDownIntChoiceMutator(numPoints int) *ScaleDownIntChoiceMutator {
+	return &ScaleDownIntChoiceMutator{
+		NumPoints: numPoints,
+		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]) (*List[*SchedulingChoice], bool) {
+	integerChoiceIndices := make([]int, 0)
+	for i, choice := range trace.Iter() {
+		if choice.Type == RandomInteger {
+			integerChoiceIndices = append(integerChoiceIndices, i)
+		}
+	}
+	numIntegerChoiceIndices := len(integerChoiceIndices)
+	if numIntegerChoiceIndices == 0 {
+		return nil, false
+	}
+	toScaleDown := make(map[int]bool)
+	for len(toScaleDown) < s.NumPoints {
+		next := s.rand.Intn(numIntegerChoiceIndices)
+		toScaleDown[next] = true
+	}
+	newTrace := trace
+	for i, _ := range toScaleDown {
+		curChoice, ok := trace.Get(i)
+		if !ok {
+			continue
+		}
+		newChoice := &SchedulingChoice{
+			Type:          RandomInteger,
+			IntegerChoice: s.rand.Intn(curChoice.IntegerChoice),
+		}
+		newTrace.Set(i, newChoice)
+	}
+
+	return newTrace, true
 }
