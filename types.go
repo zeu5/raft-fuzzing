@@ -112,6 +112,12 @@ func (l *List[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(l.l)
 }
 
+func (l *List[T]) Copy() *List[T] {
+	return &List[T]{
+		l: l.l,
+	}
+}
+
 type State struct {
 	Repr string
 	Key  int64

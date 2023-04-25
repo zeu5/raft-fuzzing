@@ -4,11 +4,11 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 	c := NewComparision(saveFile, &FuzzerConfig{
 		Iterations: episodes,
 		Steps:      horizon,
-		Strategy:   NewRoundRobinStrategy(replicas),
+		Strategy:   NewRandomStrategy(),
 		Mutator:    &EmptyMutator{},
 		RaftEnvironmentConfig: RaftEnvironmentConfig{
 			Replicas:      replicas,
-			ElectionTick:  16,
+			ElectionTick:  10,
 			HeartbeatTick: 2,
 			NumRequests:   requests,
 		},
@@ -21,6 +21,7 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 	c.AddMutator("skipNodes", NewSkipNodeMutator(5))
 	c.AddMutator("swapNodes", NewSwapNodeMutator(5))
 	c.AddMutator("scaleDownInt", NewScaleDownIntChoiceMutator(5))
+	c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))
 
 	c.Run()
 }

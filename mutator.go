@@ -136,7 +136,7 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 			toSwap[i] = map[int]bool{j: true}
 		}
 	}
-	newTrace := trace
+	newTrace := trace.Copy()
 	for i, v := range toSwap {
 		for j := range v {
 			first, _ := newTrace.Get(i)
@@ -179,7 +179,7 @@ func (s *SwapIntegerChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Lis
 			toSwap[i] = map[int]bool{j: true}
 		}
 	}
-	newTrace := trace
+	newTrace := trace.Copy()
 	for i, v := range toSwap {
 		for j := range v {
 			first, _ := newTrace.Get(i)
@@ -221,15 +221,65 @@ func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Li
 		next := s.rand.Intn(numIntegerChoiceIndices)
 		toScaleDown[next] = true
 	}
-	newTrace := trace
-	for i, _ := range toScaleDown {
-		curChoice, ok := trace.Get(i)
+	newTrace := trace.Copy()
+	for i := range toScaleDown {
+		curChoice, ok := newTrace.Get(i)
+		if !ok {
+			continue
+		}
+		if curChoice.IntegerChoice > 0 {
+			newChoice := &SchedulingChoice{
+				Type:          RandomInteger,
+				IntegerChoice: s.rand.Intn(curChoice.IntegerChoice),
+			}
+			newTrace.Set(i, newChoice)
+		}
+	}
+
+	return newTrace, true
+}
+
+type ScaleUpIntChoiceMutator struct {
+	NumPoints int
+	Max       int
+	rand      *rand.Rand
+}
+
+var _ Mutator = &ScaleUpIntChoiceMutator{}
+
+func NewScaleUpIntChoiceMutator(numPoints, max int) *ScaleUpIntChoiceMutator {
+	return &ScaleUpIntChoiceMutator{
+		NumPoints: numPoints,
+		Max:       max,
+		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]) (*List[*SchedulingChoice], bool) {
+	integerChoiceIndices := make([]int, 0)
+	for i, choice := range trace.Iter() {
+		if choice.Type == RandomInteger {
+			integerChoiceIndices = append(integerChoiceIndices, i)
+		}
+	}
+	numIntegerChoiceIndices := len(integerChoiceIndices)
+	if numIntegerChoiceIndices == 0 {
+		return nil, false
+	}
+	toScaleUp := make(map[int]bool)
+	for len(toScaleUp) < s.NumPoints {
+		next := s.rand.Intn(numIntegerChoiceIndices)
+		toScaleUp[next] = true
+	}
+	newTrace := trace.Copy()
+	for i := range toScaleUp {
+		curChoice, ok := newTrace.Get(i)
 		if !ok {
 			continue
 		}
 		newChoice := &SchedulingChoice{
 			Type:          RandomInteger,
-			IntegerChoice: s.rand.Intn(curChoice.IntegerChoice),
+			IntegerChoice: max(s.Max, curChoice.IntegerChoice*2),
 		}
 		newTrace.Set(i, newChoice)
 	}

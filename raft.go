@@ -198,19 +198,6 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 				},
 			})
 		}
-		// Compare commit index of leader and add advance commit index
-		if new == raft.StateLeader {
-			oldCommitIndex := r.curStates[id].Commit
-			newCommitIndex := newStatus.Commit
-			if newCommitIndex > oldCommitIndex {
-				ctx.AddEvent(&Event{
-					Name: "AdvanceCommitIndex",
-					Params: map[string]interface{}{
-						"node": id,
-					},
-				})
-			}
-		}
 		r.curStates[id] = newStatus
 		ctx.AddEvent(&Event{
 			Name: "StateUpdate",

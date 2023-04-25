@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -87,4 +89,12 @@ func (c *Comparision) record() {
 		i++
 	}
 	p.Save(4*vg.Inch, 4*vg.Inch, c.plotFile)
+
+	finalCoverage := make(map[string]CoverageStats)
+	for name, points := range c.coverages {
+		finalCoverage[name] = points[len(points)-1]
+	}
+	if cov, err := json.Marshal(finalCoverage); err == nil {
+		os.WriteFile("cov.json", cov, 0644)
+	}
 }
