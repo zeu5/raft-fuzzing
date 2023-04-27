@@ -202,7 +202,7 @@ func (f *Fuzzer) RunIteration(_ int) {
 	}
 	if f.mutatedTracesQueue.Size() > 0 {
 		mutatedTrace, _ := f.mutatedTracesQueue.Pop()
-		for _, choice := range mutatedTrace.AsList() {
+		for _, choice := range mutatedTrace.Iter() {
 			switch choice.Type {
 			case RandomBoolean:
 				f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)

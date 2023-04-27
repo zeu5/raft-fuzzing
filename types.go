@@ -23,6 +23,15 @@ type SchedulingChoice struct {
 	IntegerChoice int  `json:",omitempty"`
 }
 
+func (s *SchedulingChoice) Copy() *SchedulingChoice {
+	return &SchedulingChoice{
+		Type:          s.Type,
+		NodeID:        s.NodeID,
+		BooleanChoice: s.BooleanChoice,
+		IntegerChoice: s.IntegerChoice,
+	}
+}
+
 type Queue[T any] struct {
 	q []T
 }
@@ -104,18 +113,8 @@ func (l *List[T]) Reset() {
 	l.l = make([]T, 0)
 }
 
-func (l *List[T]) AsList() []T {
-	return l.l
-}
-
 func (l *List[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(l.l)
-}
-
-func (l *List[T]) Copy() *List[T] {
-	return &List[T]{
-		l: l.l,
-	}
 }
 
 type State struct {

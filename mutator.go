@@ -55,7 +55,7 @@ func (c *ChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]) 
 				BooleanChoice: !choice.BooleanChoice,
 			})
 		} else {
-			newTrace.Append(choice)
+			newTrace.Append(choice.Copy())
 		}
 	}
 
@@ -97,7 +97,7 @@ func (d *SkipNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 	newTrace := NewList[*SchedulingChoice]()
 	for i, choice := range trace.Iter() {
 		if _, ok := toSkip[i]; !ok {
-			newTrace.Append(choice)
+			newTrace.Append(choice.Copy())
 		}
 	}
 	return newTrace, true
@@ -136,7 +136,7 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 			toSwap[i] = map[int]bool{j: true}
 		}
 	}
-	newTrace := trace.Copy()
+	newTrace := copyTrace(trace)
 	for i, v := range toSwap {
 		for j := range v {
 			first, _ := newTrace.Get(i)
@@ -179,7 +179,7 @@ func (s *SwapIntegerChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Lis
 			toSwap[i] = map[int]bool{j: true}
 		}
 	}
-	newTrace := trace.Copy()
+	newTrace := copyTrace(trace)
 	for i, v := range toSwap {
 		for j := range v {
 			first, _ := newTrace.Get(i)
@@ -221,7 +221,7 @@ func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Li
 		next := s.rand.Intn(numIntegerChoiceIndices)
 		toScaleDown[next] = true
 	}
-	newTrace := trace.Copy()
+	newTrace := copyTrace(trace)
 	for i := range toScaleDown {
 		index := integerChoiceIndices[i]
 		curChoice, ok := newTrace.Get(index)
@@ -272,7 +272,7 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 		next := s.rand.Intn(numIntegerChoiceIndices)
 		toScaleUp[next] = true
 	}
-	newTrace := trace.Copy()
+	newTrace := copyTrace(trace)
 	for i := range toScaleUp {
 		index := integerChoiceIndices[i]
 		curChoice, ok := newTrace.Get(index)
@@ -287,4 +287,12 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 	}
 
 	return newTrace, true
+}
+
+func copyTrace(t *List[*SchedulingChoice]) *List[*SchedulingChoice] {
+	newL := NewList[*SchedulingChoice]()
+	for _, e := range t.Iter() {
+		newL.Append(e.Copy())
+	}
+	return newL
 }
