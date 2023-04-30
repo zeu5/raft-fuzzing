@@ -83,6 +83,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 	sum := sha256.Sum256(bs)
 	hash := hex.EncodeToString(sum[:])
 	if _, ok := t.tracesMap[hash]; !ok {
+		// fmt.Printf("New trace: %s\n", hash)
 		t.tracesMap[hash] = true
 	}
 
@@ -101,6 +102,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 		sum := sha256.Sum256(bs)
 		stateTraceHash := hex.EncodeToString(sum[:])
 		if _, ok := t.stateTracesMap[stateTraceHash]; !ok {
+			// fmt.Printf("New state trace: %s\n", stateTraceHash)
 			t.stateTracesMap[stateTraceHash] = true
 		}
 	} else {

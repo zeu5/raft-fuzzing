@@ -29,6 +29,7 @@ type FuzzerConfig struct {
 	Strategy              Strategy
 	RaftEnvironmentConfig RaftEnvironmentConfig
 	MutPerTrace           int
+	InitialPopulation     int
 }
 
 func NewFuzzer(config *FuzzerConfig) *Fuzzer {
@@ -158,7 +159,7 @@ func (f *Fuzzer) Run() error {
 	return nil
 }
 
-func (f *Fuzzer) RunIteration(_ int) {
+func (f *Fuzzer) RunIteration(iteration int) {
 	ctx := &FuzzContext{fuzzer: f}
 	// Reset current trace
 	f.curEventTrace.Reset()
@@ -193,23 +194,26 @@ func (f *Fuzzer) RunIteration(_ int) {
 		for i := 0; i < f.config.MutPerTrace; i++ {
 			new, ok := f.config.Mutator.Mutate(f.curTrace, f.curEventTrace)
 			if ok {
-				mutatedTraces = append(mutatedTraces, new)
+				mutatedTraces = append(mutatedTraces, copyTrace(new, defaultCopyFilter()))
 			}
 		}
 		if len(mutatedTraces) > 0 {
 			f.mutatedTracesQueue.PushAll(mutatedTraces...)
 		}
 	}
-	if f.mutatedTracesQueue.Size() > 0 {
-		mutatedTrace, _ := f.mutatedTracesQueue.Pop()
-		for _, choice := range mutatedTrace.Iter() {
-			switch choice.Type {
-			case RandomBoolean:
-				f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
-			case RandomInteger:
-				f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
-			case Node:
-				f.mutatedNodeChoices.Push(choice.NodeID)
+	if iteration+1 > f.config.InitialPopulation {
+		if f.mutatedTracesQueue.Size() > 0 {
+			// fmt.Println("Picking mutated trace")
+			mutatedTrace, _ := f.mutatedTracesQueue.Pop()
+			for _, choice := range mutatedTrace.Iter() {
+				switch choice.Type {
+				case RandomBoolean:
+					f.mutatedRandomBooleanChoices.Push(choice.BooleanChoice)
+				case RandomInteger:
+					f.mutatedRandomIntegerChoices.Push(choice.IntegerChoice)
+				case Node:
+					f.mutatedNodeChoices.Push(choice.NodeID)
+				}
 			}
 		}
 	}

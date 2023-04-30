@@ -4,7 +4,7 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 	c := NewComparision(saveFile, &FuzzerConfig{
 		Iterations: episodes,
 		Steps:      horizon,
-		Strategy:   NewRandomStrategy(),
+		Strategy:   NewRoundRobinStrategy(replicas),
 		Mutator:    &EmptyMutator{},
 		RaftEnvironmentConfig: RaftEnvironmentConfig{
 			Replicas:      replicas,
@@ -12,16 +12,13 @@ func CompareMutations(episodes, horizon int, saveFile string, replicas, requests
 			HeartbeatTick: 2,
 			NumRequests:   requests,
 		},
-		MutPerTrace: 5,
+		MutPerTrace: 3,
 	})
 	c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", false))
 	c.AddMutator("random", &EmptyMutator{})
-	c.AddMutator("swapInt", NewSwapIntegerChoiceMutator(5))
-	c.AddMutator("flipChoices", NewChoiceMutator(5))
-	c.AddMutator("skipNodes", NewSkipNodeMutator(5))
-	c.AddMutator("swapNodes", NewSwapNodeMutator(5))
-	c.AddMutator("scaleDownInt", NewScaleDownIntChoiceMutator(5))
-	c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))
+	c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 10))
+	// c.AddMutator("swapNodes", NewSwapNodeMutator(40))
+	c.AddMutator("swapNodes_scaleUpInt", CombineMutators(NewScaleUpIntChoiceMutator(5, 10), NewSwapNodeMutator(30)))
 
 	c.Run()
 }

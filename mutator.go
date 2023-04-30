@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -128,21 +129,26 @@ func (s *SwapNodeMutator) Mutate(trace *List[*SchedulingChoice], _ *List[*Event]
 	if numNodeChoiceIndices == 0 {
 		return nil, false
 	}
-	toSwap := make(map[int]map[int]bool)
-	for len(toSwap) < s.NumSwaps {
+	choices := numNodeChoiceIndices
+	if s.NumSwaps < choices {
+		choices = s.NumSwaps
+	}
+	toSwap := make(map[string]map[int]int)
+	for len(toSwap) < choices {
 		i := nodeChoiceIndices[s.rand.Intn(numNodeChoiceIndices)]
 		j := nodeChoiceIndices[s.rand.Intn(numNodeChoiceIndices)]
-		if _, ok := toSwap[i]; !ok {
-			toSwap[i] = map[int]bool{j: true}
+		key := fmt.Sprintf("%d_%d", i, j)
+		if _, ok := toSwap[key]; !ok {
+			toSwap[key] = map[int]int{i: j}
 		}
 	}
-	newTrace := copyTrace(trace)
-	for i, v := range toSwap {
-		for j := range v {
+	newTrace := copyTrace(trace, defaultCopyFilter())
+	for _, v := range toSwap {
+		for i, j := range v {
 			first, _ := newTrace.Get(i)
 			second, _ := newTrace.Get(j)
-			newTrace.Set(i, second)
-			newTrace.Set(j, first)
+			newTrace.Set(i, second.Copy())
+			newTrace.Set(j, first.Copy())
 		}
 	}
 	return newTrace, true
@@ -179,7 +185,7 @@ func (s *SwapIntegerChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Lis
 			toSwap[i] = map[int]bool{j: true}
 		}
 	}
-	newTrace := copyTrace(trace)
+	newTrace := copyTrace(trace, defaultCopyFilter())
 	for i, v := range toSwap {
 		for j := range v {
 			first, _ := newTrace.Get(i)
@@ -221,7 +227,7 @@ func (s *ScaleDownIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *Li
 		next := s.rand.Intn(numIntegerChoiceIndices)
 		toScaleDown[next] = true
 	}
-	newTrace := copyTrace(trace)
+	newTrace := copyTrace(trace, defaultCopyFilter())
 	for i := range toScaleDown {
 		index := integerChoiceIndices[i]
 		curChoice, ok := newTrace.Get(index)
@@ -268,11 +274,15 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 		return nil, false
 	}
 	toScaleUp := make(map[int]bool)
-	for len(toScaleUp) < s.NumPoints {
+	choices := numIntegerChoiceIndices
+	if s.NumPoints < numIntegerChoiceIndices {
+		choices = s.NumPoints
+	}
+	for len(toScaleUp) < choices {
 		next := s.rand.Intn(numIntegerChoiceIndices)
 		toScaleUp[next] = true
 	}
-	newTrace := copyTrace(trace)
+	newTrace := copyTrace(trace, defaultCopyFilter())
 	for i := range toScaleUp {
 		index := integerChoiceIndices[i]
 		curChoice, ok := newTrace.Get(index)
@@ -281,7 +291,7 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 		}
 		newChoice := &SchedulingChoice{
 			Type:          RandomInteger,
-			IntegerChoice: max(s.Max, curChoice.IntegerChoice*2),
+			IntegerChoice: min(s.Max, curChoice.IntegerChoice*2),
 		}
 		newTrace.Set(index, newChoice)
 	}
@@ -289,10 +299,46 @@ func (s *ScaleUpIntChoiceMutator) Mutate(trace *List[*SchedulingChoice], _ *List
 	return newTrace, true
 }
 
-func copyTrace(t *List[*SchedulingChoice]) *List[*SchedulingChoice] {
+func copyTrace(t *List[*SchedulingChoice], filter func(*SchedulingChoice) bool) *List[*SchedulingChoice] {
 	newL := NewList[*SchedulingChoice]()
 	for _, e := range t.Iter() {
-		newL.Append(e.Copy())
+		if filter(e) {
+			newL.Append(e.Copy())
+		}
 	}
 	return newL
+}
+
+func defaultCopyFilter() func(*SchedulingChoice) bool {
+	return func(sc *SchedulingChoice) bool {
+		return true
+	}
+}
+
+func typeCopyFilter(t SchedulingChoiceType) func(*SchedulingChoice) bool {
+	return func(sc *SchedulingChoice) bool {
+		return sc.Type == t
+	}
+}
+
+type combinedMutator struct {
+	mutators []Mutator
+}
+
+func (c *combinedMutator) Mutate(trace *List[*SchedulingChoice], eventTrace *List[*Event]) (*List[*SchedulingChoice], bool) {
+	curTrace := copyTrace(trace, defaultCopyFilter())
+	for _, m := range c.mutators {
+		nextTrace, ok := m.Mutate(curTrace, eventTrace)
+		if !ok {
+			return nil, false
+		}
+		curTrace = nextTrace
+	}
+	return curTrace, true
+}
+
+func CombineMutators(mutators ...Mutator) Mutator {
+	return &combinedMutator{
+		mutators: mutators,
+	}
 }
