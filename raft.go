@@ -96,6 +96,7 @@ func (r *RaftEnvironment) makeNodes() {
 			Rand:                      r.raftRand,
 			MaxUncommittedEntriesSize: 1 << 30,
 			Logger:                    &raft.DefaultLogger{Logger: log.New(io.Discard, "", 0)},
+			CheckQuorum:               true,
 		})
 		for _, c := range confChanges {
 			node.ApplyConfChange(c)
@@ -155,10 +156,7 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 
 	// Take random number of ticks and update node states
 	for _, node := range r.nodes {
-		ticks := 1
-		for i := 0; i < ticks; i++ {
-			node.Tick()
-		}
+		node.Tick()
 	}
 	r.updateStates(ctx)
 	for id, node := range r.nodes {

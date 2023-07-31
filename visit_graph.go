@@ -49,6 +49,15 @@ func (v *VisitGraph) Update(trace []State) {
 		v.Nodes[next.Key].AddPrev(cur.Key)
 	}
 	last := trace[len(trace)-1]
+	if _, ok := v.Nodes[last.Key]; !ok {
+		v.Nodes[last.Key] = &VisitGraphNode{
+			Key:    last.Key,
+			State:  last.Repr,
+			Visits: 0,
+			Next:   make(map[int64]bool),
+			Prev:   make(map[int64]bool),
+		}
+	}
 	v.Nodes[last.Key].Visits += 1
 }
 
