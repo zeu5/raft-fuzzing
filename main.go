@@ -9,18 +9,20 @@ import (
 var (
 	episodes int
 	horizon  int
-	saveFile string
+	savePath string
 	replicas int
 	requests int
+	numRuns  int
 )
 
 func main() {
 	rootCommand := &cobra.Command{}
 	rootCommand.PersistentFlags().IntVarP(&episodes, "episodes", "e", 10000, "Number of episodes to run")
 	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 50, "Horizon of each episode")
-	rootCommand.PersistentFlags().StringVarP(&saveFile, "save", "s", "save.png", "Save the plot to the specified file")
+	rootCommand.PersistentFlags().StringVarP(&savePath, "save", "s", "results", "Save the results to the specified path")
 	rootCommand.PersistentFlags().IntVarP(&replicas, "replicas", "r", 3, "Num of replicas to run in environment")
 	rootCommand.PersistentFlags().IntVar(&requests, "requests", 1, "Num of initial requests to serve")
+	rootCommand.PersistentFlags().IntVar(&numRuns, "runs", 5, "Number of runs to average over")
 	rootCommand.AddCommand(FuzzCommand())
 	rootCommand.AddCommand(OneCommand())
 
@@ -56,7 +58,7 @@ func OneCommand() *cobra.Command {
 	return &cobra.Command{
 		Use: "compare",
 		Run: func(cmd *cobra.Command, args []string) {
-			c := NewComparision(saveFile, &FuzzerConfig{
+			c := NewComparision(savePath, &FuzzerConfig{
 				Iterations: episodes,
 				Steps:      horizon,
 				Strategy:   NewRandomStrategy(),
@@ -68,7 +70,7 @@ func OneCommand() *cobra.Command {
 					NumRequests:   requests,
 				},
 				MutPerTrace: 3,
-			})
+			}, numRuns)
 			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", false))
 			c.AddMutator("random", &EmptyMutator{})
 			c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))

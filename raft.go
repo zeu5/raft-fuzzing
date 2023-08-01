@@ -150,8 +150,10 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 			result = append(result, m)
 		}
 	} else {
-		node := r.nodes[m.To]
-		node.Step(m)
+		node, ok := r.nodes[m.To]
+		if ok {
+			node.Step(m)
+		}
 	}
 
 	// Take random number of ticks and update node states
@@ -210,6 +212,41 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 				"node": id,
 				"state": fmt.Sprintf(`{"id":"%x","term":%d,"vote":"%x","commit":%d,"lead":"%x","raftState":%q,"applied":%d}`,
 					newStatus.ID, newStatus.Term, newStatus.Vote, newStatus.Commit, newStatus.Lead, newStatus.RaftState, newStatus.Applied),
+			},
+		})
+	}
+}
+
+func (r *RaftEnvironment) Stop(ctx *FuzzContext, node uint64) {
+	delete(r.nodes, node)
+	// TODO: update this
+	ctx.AddEvent(&Event{
+		Name: "Remove",
+		Params: map[string]interface{}{
+			"i": node,
+		},
+	})
+}
+
+func (r *RaftEnvironment) Start(ctx *FuzzContext, nodeID uint64) {
+	if storage, ok := r.storages[nodeID]; ok {
+		node, _ := raft.NewRawNode(&raft.Config{
+			ID:                        nodeID,
+			ElectionTick:              r.config.ElectionTick,
+			HeartbeatTick:             r.config.HeartbeatTick,
+			Storage:                   storage,
+			MaxSizePerMsg:             1024 * 1024,
+			MaxInflightMsgs:           256,
+			Rand:                      r.raftRand,
+			MaxUncommittedEntriesSize: 1 << 30,
+			Logger:                    &raft.DefaultLogger{Logger: log.New(io.Discard, "", 0)},
+			CheckQuorum:               true,
+		})
+		r.nodes[nodeID] = node
+		ctx.AddEvent(&Event{
+			Name: "Add",
+			Params: map[string]interface{}{
+				"i": nodeID,
 			},
 		})
 	}

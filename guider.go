@@ -28,7 +28,6 @@ type TLCStateGuider struct {
 	statesMap      map[int64]bool
 	tracesMap      map[string]bool
 	stateTracesMap map[string]bool
-	visitGraph     *VisitGraph
 	tlcClient      *TLCClient
 	recordPath     string
 	recordTraces   bool
@@ -46,7 +45,6 @@ func NewTLCStateGuider(tlcAddr, recordPath string, recordTraces bool) *TLCStateG
 	}
 	return &TLCStateGuider{
 		TLCAddr:        tlcAddr,
-		visitGraph:     NewVisitGraph(),
 		statesMap:      make(map[int64]bool),
 		tracesMap:      make(map[string]bool),
 		stateTracesMap: make(map[string]bool),
@@ -61,12 +59,6 @@ func (t *TLCStateGuider) Reset(key string) {
 	t.statesMap = make(map[int64]bool)
 	t.tracesMap = make(map[string]bool)
 	t.stateTracesMap = make(map[string]bool)
-
-	if !t.visitGraph.IsEmpty() {
-		t.visitGraph.record(t.recordPath, key)
-		t.count += 1
-	}
-	t.visitGraph = NewVisitGraph()
 
 }
 
@@ -97,7 +89,6 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 				t.statesMap[s.Key] = true
 			}
 		}
-		t.visitGraph.Update(tlcStates)
 		bs, _ := json.Marshal(tlcStates)
 		sum := sha256.Sum256(bs)
 		stateTraceHash := hex.EncodeToString(sum[:])

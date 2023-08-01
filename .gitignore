@@ -19,9 +19,9 @@
 
 # Project specific files
 raft-fuzzing
-*.png
 cov.json
 traces
+results
 
 __pycache__
 *.pyc
