@@ -99,7 +99,7 @@ func (t *traceCtx) CanCrash(step int) (uint64, bool) {
 		t.eventTrace.Append(&Event{
 			Name: "Remove",
 			Params: map[string]interface{}{
-				"i": node,
+				"i": int(node),
 			},
 		})
 		t.trace.Append(&SchedulingChoice{
@@ -117,7 +117,7 @@ func (t *traceCtx) CanStart(step int) (uint64, bool) {
 		t.eventTrace.Append(&Event{
 			Name: "Add",
 			Params: map[string]interface{}{
-				"i": node,
+				"i": int(node),
 			},
 		})
 		t.trace.Append(&SchedulingChoice{
@@ -305,7 +305,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		}
 		for c := range sample(choices, f.config.CrashQuota, f.rand) {
 			var idx int = 0
-			for idx != 0 {
+			for idx == 0 {
 				idx = f.rand.Intn(len(f.nodes))
 			}
 			tCtx.crashPoints[c] = uint64(idx)

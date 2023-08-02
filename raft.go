@@ -204,13 +204,6 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 
 func (r *RaftEnvironment) Stop(ctx *FuzzContext, node uint64) {
 	delete(r.nodes, node)
-	// TODO: update this
-	ctx.AddEvent(&Event{
-		Name: "Remove",
-		Params: map[string]interface{}{
-			"i": node,
-		},
-	})
 }
 
 func (r *RaftEnvironment) Start(ctx *FuzzContext, nodeID uint64) {
@@ -228,11 +221,5 @@ func (r *RaftEnvironment) Start(ctx *FuzzContext, nodeID uint64) {
 			CheckQuorum:               true,
 		})
 		r.nodes[nodeID] = node
-		ctx.AddEvent(&Event{
-			Name: "Add",
-			Params: map[string]interface{}{
-				"i": nodeID,
-			},
-		})
 	}
 }
