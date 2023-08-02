@@ -45,11 +45,13 @@ func FuzzCommand() *cobra.Command {
 					Replicas:      replicas,
 					ElectionTick:  10,
 					HeartbeatTick: 2,
-					NumRequests:   requests,
 				},
-				MutPerTrace: 5,
+				NumberRequests: requests,
+				MutPerTrace:    5,
+				CrashQuota:     5,
 			})
-			return fuzzer.Run()
+			fuzzer.Run()
+			return nil
 		},
 	}
 }
@@ -67,11 +69,12 @@ func OneCommand() *cobra.Command {
 					Replicas:      replicas,
 					ElectionTick:  20,
 					HeartbeatTick: 2,
-					NumRequests:   requests,
 				},
-				MutPerTrace: 3,
+				MutPerTrace:    3,
+				NumberRequests: requests,
+				CrashQuota:     5,
 			}, numRuns)
-			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", false))
+			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", true))
 			c.AddMutator("random", &EmptyMutator{})
 			c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))
 			c.AddMutator("swapNodes", NewSwapNodeMutator(30))

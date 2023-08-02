@@ -67,11 +67,8 @@ func (c *Comparision) doRun(run int) runInfo {
 			rI.coverages[key] = make([]CoverageStats, 0)
 			fuzzer := NewFuzzer(c.config)
 			start := time.Now()
-			for i := 0; i < c.config.Iterations; i++ {
-				fmt.Printf("\rRunning for mutator: %s, guider: %s, Episode: %d/%d", mutatorName, guiderName, i+1, c.config.Iterations)
-				fuzzer.RunIteration(i)
-				rI.coverages[key] = append(rI.coverages[key], guider.Coverage())
-			}
+			fmt.Printf("Running for mutator: %s, guider: %s\n", mutatorName, guiderName)
+			rI.coverages[key] = fuzzer.Run()
 			end := time.Since(start)
 			rI.runTimes[key] = end
 			fmt.Printf("\nRun time: %s\n", end.String())

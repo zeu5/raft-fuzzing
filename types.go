@@ -1,6 +1,9 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"math/rand"
+)
 
 type Event struct {
 	Name   string
@@ -12,6 +15,9 @@ var (
 	Node          SchedulingChoiceType = "Node"
 	RandomBoolean SchedulingChoiceType = "RandomBoolean"
 	RandomInteger SchedulingChoiceType = "RandomInteger"
+	StartNode     SchedulingChoiceType = "StartNode"
+	StopNode      SchedulingChoiceType = "StopNode"
+	ClientRequest SchedulingChoiceType = "ClientRequest"
 )
 
 type SchedulingChoiceType string
@@ -19,16 +25,22 @@ type SchedulingChoiceType string
 type SchedulingChoice struct {
 	Type          SchedulingChoiceType
 	NodeID        uint64
+	MaxMessages   int
 	BooleanChoice bool `json:",omitempty"`
 	IntegerChoice int  `json:",omitempty"`
+	Step          int  `json:",omitempty"`
+	Request       int  `json:",omitempty"`
 }
 
 func (s *SchedulingChoice) Copy() *SchedulingChoice {
 	return &SchedulingChoice{
 		Type:          s.Type,
 		NodeID:        s.NodeID,
+		MaxMessages:   s.MaxMessages,
 		BooleanChoice: s.BooleanChoice,
 		IntegerChoice: s.IntegerChoice,
+		Step:          s.Step,
+		Request:       s.Request,
 	}
 }
 
@@ -134,4 +146,30 @@ func min(a, b int) int {
 		return b
 	}
 	return a
+}
+
+func sample(l []int, size int, r *rand.Rand) []int {
+	if size >= len(l) {
+		return l
+	}
+	indexes := make(map[int]bool)
+	for len(indexes) < size {
+		i := r.Intn(len(l))
+		indexes[i] = true
+	}
+	samples := make([]int, size)
+	i := 0
+	for k := range indexes {
+		samples[i] = k
+		i++
+	}
+	return samples
+}
+
+func intRange(start, end int) []int {
+	res := make([]int, end-start)
+	for i := start; i < end; i++ {
+		res[i-start] = i
+	}
+	return res
 }

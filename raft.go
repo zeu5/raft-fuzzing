@@ -48,7 +48,6 @@ type RaftEnvironmentConfig struct {
 	Replicas      int
 	ElectionTick  int
 	HeartbeatTick int
-	NumRequests   int
 }
 
 type RaftEnvironment struct {
@@ -71,10 +70,6 @@ func NewRaftEnvironment(config RaftEnvironmentConfig) *RaftEnvironment {
 	}
 	r.makeNodes()
 	return r
-}
-
-func (r *RaftEnvironment) Setup(ctx *FuzzContext) {
-	r.raftRand.UpdateCtx(ctx)
 }
 
 func (r *RaftEnvironment) makeNodes() {
@@ -107,19 +102,9 @@ func (r *RaftEnvironment) makeNodes() {
 	r.curCommitIndex = 0
 }
 
-func (r *RaftEnvironment) Reset() []pb.Message {
-	messages := make([]pb.Message, r.config.NumRequests)
-	for i := 0; i < r.config.NumRequests; i++ {
-		messages[i] = pb.Message{
-			Type: pb.MsgProp,
-			From: uint64(0),
-			Entries: []pb.Entry{
-				{Data: []byte(strconv.Itoa(i + 1))},
-			},
-		}
-	}
+func (r *RaftEnvironment) Reset(ctx *FuzzContext) {
+	r.raftRand.UpdateCtx(ctx)
 	r.makeNodes()
-	return messages
 }
 
 func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
