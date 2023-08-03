@@ -160,7 +160,7 @@ func sample(l []int, size int, r *rand.Rand) []int {
 	samples := make([]int, size)
 	i := 0
 	for k := range indexes {
-		samples[i] = k
+		samples[i] = l[k]
 		i++
 	}
 	return samples

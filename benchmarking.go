@@ -25,6 +25,7 @@ type Comparision struct {
 type runInfo struct {
 	runTimes  map[string]time.Duration
 	coverages map[string][]CoverageStats
+	stats     map[string]map[string]interface{}
 }
 
 func NewComparision(plotPath string, config *FuzzerConfig, runs int) *Comparision {
@@ -58,6 +59,7 @@ func (c *Comparision) doRun(run int) runInfo {
 	rI := runInfo{
 		runTimes:  make(map[string]time.Duration),
 		coverages: make(map[string][]CoverageStats),
+		stats:     make(map[string]map[string]interface{}),
 	}
 	for guiderName, guider := range c.guiders {
 		for mutatorName, mutator := range c.mutators {
@@ -73,6 +75,7 @@ func (c *Comparision) doRun(run int) runInfo {
 			rI.runTimes[key] = end
 			fmt.Printf("\nRun time: %s\n", end.String())
 			// Reset guider
+			rI.stats[key] = fuzzer.stats
 			guider.Reset(mutatorName)
 		}
 	}
@@ -92,6 +95,7 @@ func (c *Comparision) record() {
 
 	runTimes := make(map[string][]time.Duration)
 	finalCoverages := make(map[string][]CoverageStats)
+	stats := make(map[string][]map[string]interface{})
 
 	for i := 0; i < c.runs; i++ {
 		plotFile := path.Join(c.plotPath, fmt.Sprintf("%d.png", i))
@@ -134,6 +138,13 @@ func (c *Comparision) record() {
 			}
 			finalCoverages[name] = append(finalCoverages[name], points[len(points)-1])
 		}
+
+		for name, rStats := range c.runInfos[i].stats {
+			if _, ok := stats[name]; !ok {
+				stats[name] = make([]map[string]interface{}, 0)
+			}
+			stats[name] = append(stats[name], rStats)
+		}
 	}
 
 	recordData := make(map[string]map[string]interface{})
@@ -165,6 +176,9 @@ func (c *Comparision) record() {
 		}
 		recordData[name]["average_coverage"] = avg
 		recordData[name]["coverages"] = coverages
+	}
+	for name, kStats := range stats {
+		recordData[name]["stats"] = kStats
 	}
 
 	recordPath := path.Join(c.plotPath, "data.json")

@@ -342,3 +342,86 @@ func CombineMutators(mutators ...Mutator) Mutator {
 		mutators: mutators,
 	}
 }
+
+type SwapCrashNodeMutator struct {
+	r *rand.Rand
+}
+
+var _ Mutator = &SwapCrashNodeMutator{}
+
+func NewSwapCrashNodeMutator() *SwapCrashNodeMutator {
+	return &SwapCrashNodeMutator{
+		r: rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (s *SwapCrashNodeMutator) Mutate(trace *List[*SchedulingChoice], eventTrace *List[*Event]) (*List[*SchedulingChoice], bool) {
+	crashPoints := make(map[int]uint64)
+	crashPointIndices := make([]int, 0)
+
+	for i, ch := range trace.Iter() {
+		if ch.Type == StopNode {
+			crashPointIndices = append(crashPointIndices, i)
+			crashPoints[i] = ch.NodeID
+		}
+	}
+
+	sp := sample(crashPointIndices, 2, s.r)
+	first := sp[0]
+	second := sp[1]
+
+	newTrace := copyTrace(trace, defaultCopyFilter())
+	for i, ch := range newTrace.Iter() {
+		if i == first {
+			ch.NodeID = crashPoints[second]
+		} else if i == second {
+			ch.NodeID = crashPoints[first]
+		}
+	}
+	return newTrace, true
+}
+
+type SwapMaxMessagesMutator struct {
+	NumSwaps int
+	r        *rand.Rand
+}
+
+var _ Mutator = &SwapMaxMessagesMutator{}
+
+func NewSwapMaxMessagesMutator(swaps int) *SwapMaxMessagesMutator {
+	return &SwapMaxMessagesMutator{
+		NumSwaps: swaps,
+		r:        rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (s *SwapMaxMessagesMutator) Mutate(trace *List[*SchedulingChoice], eventTrace *List[*Event]) (*List[*SchedulingChoice], bool) {
+	swaps := make(map[int]int)
+
+	nodeChoices := make([]int, 0)
+	for i, ch := range trace.Iter() {
+		if ch.Type == Node {
+			nodeChoices = append(nodeChoices, i)
+		}
+	}
+
+	for len(swaps) < s.NumSwaps {
+		sp := sample(nodeChoices, 2, s.r)
+		swaps[sp[0]] = sp[1]
+	}
+
+	newTrace := copyTrace(trace, defaultCopyFilter())
+	for i, j := range swaps {
+		iCh, _ := newTrace.Get(i)
+		jCh, _ := newTrace.Get(j)
+
+		iChNew := iCh.Copy()
+		iChNew.MaxMessages = jCh.MaxMessages
+		jChNew := jCh.Copy()
+		jChNew.MaxMessages = iCh.MaxMessages
+
+		newTrace.Set(i, iChNew)
+		newTrace.Set(j, jChNew)
+	}
+	return newTrace, true
+}

@@ -16,6 +16,8 @@ type Fuzzer struct {
 	mutatedTracesQueue *Queue[*List[*SchedulingChoice]]
 	rand               *rand.Rand
 	raftEnvironment    *RaftEnvironment
+
+	stats map[string]interface{}
 }
 
 type traceCtx struct {
@@ -43,8 +45,7 @@ func (t *traceCtx) GetNextNodeChoice() (uint64, int) {
 	} else {
 		i := t.rand.Intn(len(t.fuzzer.nodes))
 		choice = t.fuzzer.nodes[i]
-		// Right now just one to maintain consistence with previous results
-		maxMessages = 1
+		maxMessages = t.rand.Intn(t.fuzzer.config.MaxMessages)
 	}
 	t.trace.Append(&SchedulingChoice{
 		Type:        Node,
@@ -151,6 +152,7 @@ type FuzzerConfig struct {
 	InitialPopulation     int
 	NumberRequests        int
 	CrashQuota            int
+	MaxMessages           int
 }
 
 func NewFuzzer(config *FuzzerConfig) *Fuzzer {
@@ -161,17 +163,21 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 		mutatedTracesQueue: NewQueue[*List[*SchedulingChoice]](),
 		rand:               rand.New(rand.NewSource(time.Now().UnixNano())),
 		raftEnvironment:    NewRaftEnvironment(config.RaftEnvironmentConfig),
+		stats:              make(map[string]interface{}),
 	}
 	for i := 0; i <= f.config.RaftEnvironmentConfig.Replicas; i++ {
 		f.nodes = append(f.nodes, uint64(i))
 		f.messageQueues[uint64(i)] = NewQueue[pb.Message]()
 	}
+	f.stats["random_executions"] = 0
+	f.stats["mutated_executions"] = 0
+
 	return f
 }
 
 func (f *Fuzzer) Schedule(node uint64, maxMessages int) []pb.Message {
 	queue, ok := f.messageQueues[node]
-	if !ok {
+	if !ok || queue.Size() == 0 {
 		return []pb.Message{}
 	}
 	messages := make([]pb.Message, 0)
@@ -238,7 +244,10 @@ func (f *Fuzzer) Run() []CoverageStats {
 		fmt.Printf("\rRunning iteration: %d/%d", i+1, f.config.Iterations)
 		var mimic *List[*SchedulingChoice] = nil
 		if f.mutatedTracesQueue.Size() > 0 {
+			f.stats["mutated_executions"] = f.stats["mutated_executions"].(int) + 1
 			mimic, _ = f.mutatedTracesQueue.Pop()
+		} else {
+			f.stats["random_executions"] = f.stats["random_executions"].(int) + 1
 		}
 		trace, eventTrace := f.RunIteration(fmt.Sprintf("fuzz_%d", i), mimic)
 		if f.config.Guider.Check(trace, eventTrace) {
@@ -290,20 +299,20 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 	} else {
 		for i := 0; i < f.config.Steps; i++ {
 			var idx int = 0
-			for idx != 0 {
+			for idx == 0 {
 				idx = f.rand.Intn(len(f.nodes))
 			}
 			tCtx.nodeChoices.Push(&SchedulingChoice{
 				Type:        Node,
 				NodeID:      f.nodes[idx],
-				MaxMessages: 1,
+				MaxMessages: f.rand.Intn(f.config.MaxMessages),
 			})
 		}
 		choices := make([]int, f.config.Steps)
 		for i := 0; i < f.config.Steps; i++ {
 			choices[i] = i
 		}
-		for c := range sample(choices, f.config.CrashQuota, f.rand) {
+		for _, c := range sample(choices, f.config.CrashQuota, f.rand) {
 			var idx int = 0
 			for idx == 0 {
 				idx = f.rand.Intn(len(f.nodes))
@@ -313,7 +322,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			tCtx.startPoints[s] = uint64(idx)
 		}
 		i := 1
-		for req := range sample(choices, f.config.NumberRequests, f.rand) {
+		for _, req := range sample(choices, f.config.NumberRequests, f.rand) {
 			tCtx.clientRequests[req] = i
 			i++
 		}
@@ -343,12 +352,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		messages := f.Schedule(toSchedule, maxMessages)
 		for _, m := range messages {
 			recordReceive(m, tCtx.eventTrace)
-			for _, n := range f.raftEnvironment.Step(fCtx, m) {
-				if n.Type != pb.MsgProp {
-					recordSend(n, tCtx.eventTrace)
-				}
-				f.messageQueues[n.To].Push(n)
-			}
+			f.raftEnvironment.Step(fCtx, m)
 		}
 
 		if reqNum, ok := tCtx.IsClientRequest(j); ok {
@@ -359,12 +363,11 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 					{Data: []byte(strconv.Itoa(reqNum))},
 				},
 			}
-			for _, n := range f.raftEnvironment.Step(fCtx, req) {
-				if n.Type != pb.MsgProp {
-					recordSend(n, tCtx.eventTrace)
-				}
-				f.messageQueues[n.To].Push(n)
-			}
+			f.raftEnvironment.Step(fCtx, req)
+		}
+
+		for _, n := range f.raftEnvironment.Tick(fCtx) {
+			f.messageQueues[n.To].Push(n)
 		}
 	}
 	return tCtx.trace, tCtx.eventTrace

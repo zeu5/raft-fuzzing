@@ -69,16 +69,22 @@ func OneCommand() *cobra.Command {
 					Replicas:      replicas,
 					ElectionTick:  20,
 					HeartbeatTick: 2,
+					TicksPerStep:  2,
 				},
-				MutPerTrace:    3,
-				NumberRequests: requests,
-				CrashQuota:     5,
+				MutPerTrace:       5,
+				NumberRequests:    requests,
+				CrashQuota:        5,
+				MaxMessages:       10,
+				InitialPopulation: 10,
 			}, numRuns)
-			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", true))
+			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", false))
 			c.AddMutator("random", &EmptyMutator{})
+			c.AddMutator("swapCrashNodes", NewSwapCrashNodeMutator())
 			c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))
-			c.AddMutator("swapNodes", NewSwapNodeMutator(30))
+			c.AddMutator("swapNodes", NewSwapNodeMutator(10))
+			c.AddMutator("swapMaxMessages", NewSwapMaxMessagesMutator(5))
 			c.AddMutator("swapNodes_scaleUpInt", CombineMutators(NewScaleUpIntChoiceMutator(5, 20), NewSwapNodeMutator(30)))
+			c.AddMutator("all_mutators", CombineMutators(NewSwapCrashNodeMutator(), NewScaleUpIntChoiceMutator(5, 20), NewSwapNodeMutator(10), NewSwapMaxMessagesMutator(5)))
 
 			c.Run()
 		},

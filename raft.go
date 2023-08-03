@@ -48,6 +48,7 @@ type RaftEnvironmentConfig struct {
 	Replicas      int
 	ElectionTick  int
 	HeartbeatTick int
+	TicksPerStep  int
 }
 
 type RaftEnvironment struct {
@@ -107,8 +108,7 @@ func (r *RaftEnvironment) Reset(ctx *FuzzContext) {
 	r.makeNodes()
 }
 
-func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
-	result := make([]pb.Message, 0)
+func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) {
 	if m.Type == pb.MsgProp {
 		// TODO: handle proposal separately
 		haveLeader := false
@@ -131,8 +131,6 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 				},
 			})
 			r.nodes[leader].Step(m)
-		} else {
-			result = append(result, m)
 		}
 	} else {
 		node, ok := r.nodes[m.To]
@@ -140,10 +138,15 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) []pb.Message {
 			node.Step(m)
 		}
 	}
+}
 
+func (r *RaftEnvironment) Tick(ctx *FuzzContext) []pb.Message {
+	result := make([]pb.Message, 0)
 	// Take random number of ticks and update node states
 	for _, node := range r.nodes {
-		node.Tick()
+		for i := 0; i < r.config.TicksPerStep; i++ {
+			node.Tick()
+		}
 	}
 	r.updateStates(ctx)
 	for id, node := range r.nodes {
