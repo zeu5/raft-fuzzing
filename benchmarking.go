@@ -183,7 +183,7 @@ func (c *Comparision) record() {
 
 	recordPath := path.Join(c.plotPath, "data.json")
 
-	if cov, err := json.Marshal(recordData); err == nil {
+	if cov, err := json.MarshalIndent(recordData, "", "\t"); err == nil {
 		os.WriteFile(recordPath, cov, 0644)
 	}
 }

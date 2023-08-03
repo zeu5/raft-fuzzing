@@ -40,15 +40,18 @@ func FuzzCommand() *cobra.Command {
 				Steps:      horizon,
 				Strategy:   NewRandomStrategy(),
 				Guider:     NewTLCStateGuider("127.0.0.1:2023", "traces", true),
-				Mutator:    NewScaleUpIntChoiceMutator(5, 10),
+				Mutator:    &EmptyMutator{},
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas:      replicas,
-					ElectionTick:  10,
+					ElectionTick:  20,
 					HeartbeatTick: 2,
+					TicksPerStep:  2,
 				},
-				NumberRequests: requests,
-				MutPerTrace:    5,
-				CrashQuota:     5,
+				MutPerTrace:       5,
+				NumberRequests:    requests,
+				CrashQuota:        2,
+				MaxMessages:       10,
+				InitialPopulation: 10,
 			})
 			fuzzer.Run()
 			return nil
@@ -60,6 +63,7 @@ func OneCommand() *cobra.Command {
 	return &cobra.Command{
 		Use: "compare",
 		Run: func(cmd *cobra.Command, args []string) {
+
 			c := NewComparision(savePath, &FuzzerConfig{
 				Iterations: episodes,
 				Steps:      horizon,
@@ -69,22 +73,20 @@ func OneCommand() *cobra.Command {
 					Replicas:      replicas,
 					ElectionTick:  20,
 					HeartbeatTick: 2,
-					TicksPerStep:  2,
+					TicksPerStep:  1,
 				},
-				MutPerTrace:       5,
+				MutPerTrace:       10,
 				NumberRequests:    requests,
-				CrashQuota:        5,
-				MaxMessages:       10,
+				CrashQuota:        0,
+				MaxMessages:       3,
 				InitialPopulation: 10,
 			}, numRuns)
 			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", false))
 			c.AddMutator("random", &EmptyMutator{})
-			c.AddMutator("swapCrashNodes", NewSwapCrashNodeMutator())
-			c.AddMutator("scaleUpInt", NewScaleUpIntChoiceMutator(5, 20))
-			c.AddMutator("swapNodes", NewSwapNodeMutator(10))
-			c.AddMutator("swapMaxMessages", NewSwapMaxMessagesMutator(5))
-			c.AddMutator("swapNodes_scaleUpInt", CombineMutators(NewScaleUpIntChoiceMutator(5, 20), NewSwapNodeMutator(30)))
-			c.AddMutator("all_mutators", CombineMutators(NewSwapCrashNodeMutator(), NewScaleUpIntChoiceMutator(5, 20), NewSwapNodeMutator(10), NewSwapMaxMessagesMutator(5)))
+			// c.AddMutator("swapCrashNodes", NewSwapCrashNodeMutator(1))
+			c.AddMutator("swapNodes_scaleUpInt", CombineMutators(NewSwapNodeMutator(20), NewScaleUpIntChoiceMutator(5, 20)))
+			// c.AddMutator("swapMaxMessages", NewSwapMaxMessagesMutator(10))
+			// c.AddMutator("all_mutators", CombineMutators(NewSwapCrashNodeMutator(1), NewScaleUpIntChoiceMutator(5, 20), NewSwapNodeMutator(40)))
 
 			c.Run()
 		},

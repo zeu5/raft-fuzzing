@@ -157,6 +157,14 @@ func (r *RaftEnvironment) Tick(ctx *FuzzContext) []pb.Message {
 			}
 			r.storages[id].Append(ready.Entries)
 			result = append(result, ready.Messages...)
+			if len(ready.CommittedEntries) > 0 {
+				ctx.AddEvent(&Event{
+					Name: "AdvanceCommitIndex",
+					Params: map[string]interface{}{
+						"i": int(id),
+					},
+				})
+			}
 			node.Advance(ready)
 		}
 	}

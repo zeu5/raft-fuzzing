@@ -18,7 +18,7 @@ type CoverageStats struct {
 }
 
 type Guider interface {
-	Check(*List[*SchedulingChoice], *List[*Event]) bool
+	Check(*List[*SchedulingChoice], *List[*Event]) int
 	Coverage() CoverageStats
 	Reset(string)
 }
@@ -70,7 +70,7 @@ func (t *TLCStateGuider) Coverage() CoverageStats {
 	}
 }
 
-func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[*Event]) bool {
+func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[*Event]) int {
 	bs, _ := json.Marshal(trace)
 	sum := sha256.Sum256(bs)
 	hash := hex.EncodeToString(sum[:])
@@ -79,13 +79,13 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 		t.tracesMap[hash] = true
 	}
 
-	haveNewState := false
+	numNewStates := 0
 	if tlcStates, err := t.tlcClient.SendTrace(eventTrace); err == nil {
 		t.recordTrace(trace, eventTrace, tlcStates)
 		for _, s := range tlcStates {
 			_, ok := t.statesMap[s.Key]
 			if !ok {
-				haveNewState = true
+				numNewStates += 1
 				t.statesMap[s.Key] = true
 			}
 		}
@@ -99,7 +99,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 	} else {
 		panic(fmt.Sprintf("error connecting to tlc: %s", err))
 	}
-	return haveNewState
+	return numNewStates
 }
 
 func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace *List[*Event], states []State) {
@@ -113,7 +113,7 @@ func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace 
 		"event_trace": eventTrace,
 		"state_trace": states,
 	}
-	dataB, err := json.Marshal(data)
+	dataB, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		return
 	}

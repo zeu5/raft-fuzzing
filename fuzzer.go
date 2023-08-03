@@ -250,8 +250,9 @@ func (f *Fuzzer) Run() []CoverageStats {
 			f.stats["random_executions"] = f.stats["random_executions"].(int) + 1
 		}
 		trace, eventTrace := f.RunIteration(fmt.Sprintf("fuzz_%d", i), mimic)
-		if f.config.Guider.Check(trace, eventTrace) {
-			for j := 0; j < f.config.MutPerTrace; j++ {
+		if numNewStates := f.config.Guider.Check(trace, eventTrace); numNewStates > 0 {
+			numMutations := (numNewStates / 5) * f.config.MutPerTrace
+			for j := 0; j < numMutations; j++ {
 				new, ok := f.config.Mutator.Mutate(trace, eventTrace)
 				if ok {
 					f.mutatedTracesQueue.Push(copyTrace(new, defaultCopyFilter()))
@@ -349,10 +350,12 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			}
 		}
 		toSchedule, maxMessages := tCtx.GetNextNodeChoice()
-		messages := f.Schedule(toSchedule, maxMessages)
-		for _, m := range messages {
-			recordReceive(m, tCtx.eventTrace)
-			f.raftEnvironment.Step(fCtx, m)
+		if _, ok := crashed[toSchedule]; !ok {
+			messages := f.Schedule(toSchedule, maxMessages)
+			for _, m := range messages {
+				recordReceive(m, tCtx.eventTrace)
+				f.raftEnvironment.Step(fCtx, m)
+			}
 		}
 
 		if reqNum, ok := tCtx.IsClientRequest(j); ok {
@@ -367,6 +370,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		}
 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
+			recordSend(n, tCtx.eventTrace)
 			f.messageQueues[n.To].Push(n)
 		}
 	}

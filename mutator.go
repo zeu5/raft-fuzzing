@@ -344,39 +344,50 @@ func CombineMutators(mutators ...Mutator) Mutator {
 }
 
 type SwapCrashNodeMutator struct {
-	r *rand.Rand
+	NumSwaps int
+	r        *rand.Rand
 }
 
 var _ Mutator = &SwapCrashNodeMutator{}
 
-func NewSwapCrashNodeMutator() *SwapCrashNodeMutator {
+func NewSwapCrashNodeMutator(swaps int) *SwapCrashNodeMutator {
 	return &SwapCrashNodeMutator{
-		r: rand.New(rand.NewSource(time.Now().UnixNano())),
+		NumSwaps: swaps,
+		r:        rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
 func (s *SwapCrashNodeMutator) Mutate(trace *List[*SchedulingChoice], eventTrace *List[*Event]) (*List[*SchedulingChoice], bool) {
-	crashPoints := make(map[int]uint64)
-	crashPointIndices := make([]int, 0)
+	swaps := make(map[int]int)
 
+	nodeChoices := make([]int, 0)
 	for i, ch := range trace.Iter() {
 		if ch.Type == StopNode {
-			crashPointIndices = append(crashPointIndices, i)
-			crashPoints[i] = ch.NodeID
+			nodeChoices = append(nodeChoices, i)
 		}
 	}
 
-	sp := sample(crashPointIndices, 2, s.r)
-	first := sp[0]
-	second := sp[1]
+	if len(nodeChoices) < s.NumSwaps*2 {
+		return nil, false
+	}
+
+	for len(swaps) < s.NumSwaps {
+		sp := sample(nodeChoices, 2, s.r)
+		swaps[sp[0]] = sp[1]
+	}
 
 	newTrace := copyTrace(trace, defaultCopyFilter())
-	for i, ch := range newTrace.Iter() {
-		if i == first {
-			ch.NodeID = crashPoints[second]
-		} else if i == second {
-			ch.NodeID = crashPoints[first]
-		}
+	for i, j := range swaps {
+		iCh, _ := newTrace.Get(i)
+		jCh, _ := newTrace.Get(j)
+
+		iChNew := iCh.Copy()
+		iChNew.NodeID = jCh.NodeID
+		jChNew := jCh.Copy()
+		jChNew.NodeID = iCh.NodeID
+
+		newTrace.Set(i, iChNew)
+		newTrace.Set(j, jChNew)
 	}
 	return newTrace, true
 }
@@ -403,6 +414,10 @@ func (s *SwapMaxMessagesMutator) Mutate(trace *List[*SchedulingChoice], eventTra
 		if ch.Type == Node {
 			nodeChoices = append(nodeChoices, i)
 		}
+	}
+
+	if len(nodeChoices) < s.NumSwaps {
+		return nil, false
 	}
 
 	for len(swaps) < s.NumSwaps {
