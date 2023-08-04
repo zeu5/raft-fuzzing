@@ -49,11 +49,11 @@ func FuzzCommand() *cobra.Command {
 					HeartbeatTick: 2,
 					TicksPerStep:  2,
 				},
-				MutPerTrace:       5,
-				NumberRequests:    requests,
-				CrashQuota:        2,
-				MaxMessages:       10,
-				InitialPopulation: 10,
+				MutPerTrace:        5,
+				NumberRequests:     requests,
+				CrashQuota:         2,
+				MaxMessages:        10,
+				SeedPopulationSize: 10,
 			})
 			fuzzer.Run()
 			return nil
@@ -72,16 +72,22 @@ func OneCommand() *cobra.Command {
 				Strategy:   NewRandomStrategy(),
 				Mutator:    &EmptyMutator{},
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
-					Replicas:      replicas,
+					Replicas: replicas,
+					// Higher election tick gives random better chances. (less timeouts)
 					ElectionTick:  12,
 					HeartbeatTick: 2,
-					TicksPerStep:  3,
+					// Should not be more than ElectionTick/4 otherwise you are more likely to starve processes
+					TicksPerStep: 3,
 				},
-				MutPerTrace:       6,
-				NumberRequests:    requests,
-				CrashQuota:        5,
-				MaxMessages:       5,
-				InitialPopulation: 10,
+				// Too much is bad, can lead to very local search
+				MutPerTrace:    5,
+				NumberRequests: requests,
+				// More makes random worse
+				CrashQuota: 10,
+				// Too few messages are better for random
+				MaxMessages:        5,
+				SeedPopulationSize: 10,
+				ReseedFrequency:    2000,
 			}, numRuns)
 			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.AddMutator("random", &EmptyMutator{})

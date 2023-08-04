@@ -149,10 +149,11 @@ type FuzzerConfig struct {
 	Strategy              Strategy
 	RaftEnvironmentConfig RaftEnvironmentConfig
 	MutPerTrace           int
-	InitialPopulation     int
+	SeedPopulationSize    int
 	NumberRequests        int
 	CrashQuota            int
 	MaxMessages           int
+	ReseedFrequency       int
 }
 
 func NewFuzzer(config *FuzzerConfig) *Fuzzer {
@@ -227,15 +228,20 @@ func recordSend(message pb.Message, eventTrace *List[*Event]) {
 	})
 }
 
-func (f *Fuzzer) Run() []CoverageStats {
-	for i := 0; i < f.config.InitialPopulation; i++ {
+func (f *Fuzzer) seed() {
+	f.mutatedTracesQueue.Reset()
+	for i := 0; i < f.config.SeedPopulationSize; i++ {
 		trace, _ := f.RunIteration(fmt.Sprintf("pop_%d", i), nil)
 		f.mutatedTracesQueue.Push(copyTrace(trace, defaultCopyFilter()))
 	}
+}
 
+func (f *Fuzzer) Run() []CoverageStats {
 	coverages := make([]CoverageStats, 0)
-
 	for i := 0; i < f.config.Iterations; i++ {
+		if i%f.config.ReseedFrequency == 0 {
+			f.seed()
+		}
 		fmt.Printf("\rRunning iteration: %d/%d", i+1, f.config.Iterations)
 		var mimic *List[*SchedulingChoice] = nil
 		if f.mutatedTracesQueue.Size() > 0 {
@@ -246,7 +252,7 @@ func (f *Fuzzer) Run() []CoverageStats {
 		}
 		trace, eventTrace := f.RunIteration(fmt.Sprintf("fuzz_%d", i), mimic)
 		if numNewStates, _ := f.config.Guider.Check(trace, eventTrace); numNewStates > 0 {
-			numMutations := f.config.MutPerTrace
+			numMutations := numNewStates * f.config.MutPerTrace
 			for j := 0; j < numMutations; j++ {
 				new, ok := f.config.Mutator.Mutate(trace, eventTrace)
 				if ok {
