@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 )
 
 type CoverageStats struct {
@@ -18,7 +19,7 @@ type CoverageStats struct {
 }
 
 type Guider interface {
-	Check(*List[*SchedulingChoice], *List[*Event]) int
+	Check(*List[*SchedulingChoice], *List[*Event]) (int, float64)
 	Coverage() CoverageStats
 	Reset(string)
 }
@@ -70,7 +71,7 @@ func (t *TLCStateGuider) Coverage() CoverageStats {
 	}
 }
 
-func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[*Event]) int {
+func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[*Event]) (int, float64) {
 	bs, _ := json.Marshal(trace)
 	sum := sha256.Sum256(bs)
 	hash := hex.EncodeToString(sum[:])
@@ -79,6 +80,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 		t.tracesMap[hash] = true
 	}
 
+	curStates := len(t.statesMap)
 	numNewStates := 0
 	if tlcStates, err := t.tlcClient.SendTrace(eventTrace); err == nil {
 		t.recordTrace(trace, eventTrace, tlcStates)
@@ -99,7 +101,7 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 	} else {
 		panic(fmt.Sprintf("error connecting to tlc: %s", err))
 	}
-	return numNewStates
+	return numNewStates, float64(numNewStates) / float64(max(curStates, 1))
 }
 
 func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace *List[*Event], states []State) {
@@ -111,7 +113,7 @@ func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace 
 	data := map[string]interface{}{
 		"trace":       trace,
 		"event_trace": eventTrace,
-		"state_trace": states,
+		"state_trace": parseTLCStateTrace(states),
 	}
 	dataB, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
@@ -125,4 +127,20 @@ func (t *TLCStateGuider) recordTrace(trace *List[*SchedulingChoice], eventTrace 
 	writer := bufio.NewWriter(file)
 	writer.Write(dataB)
 	writer.Flush()
+}
+
+func parseTLCStateTrace(states []State) []State {
+	newStates := make([]State, len(states))
+	for i, s := range states {
+		repr := strings.ReplaceAll(s.Repr, "\n", ",")
+		repr = strings.ReplaceAll(repr, "/\\", "")
+		repr = strings.ReplaceAll(repr, "\u003e\u003e", "]")
+		repr = strings.ReplaceAll(repr, "\u003c\u003c", "[")
+		repr = strings.ReplaceAll(repr, "\u003e", ">")
+		newStates[i] = State{
+			Repr: repr,
+			Key:  s.Key,
+		}
+	}
+	return newStates
 }

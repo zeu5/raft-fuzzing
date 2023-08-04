@@ -229,13 +229,8 @@ func recordSend(message pb.Message, eventTrace *List[*Event]) {
 
 func (f *Fuzzer) Run() []CoverageStats {
 	for i := 0; i < f.config.InitialPopulation; i++ {
-		trace, eventTrace := f.RunIteration(fmt.Sprintf("pop_%d", i), nil)
-		for j := 0; j < f.config.MutPerTrace; j++ {
-			new, ok := f.config.Mutator.Mutate(trace, eventTrace)
-			if ok {
-				f.mutatedTracesQueue.Push(copyTrace(new, defaultCopyFilter()))
-			}
-		}
+		trace, _ := f.RunIteration(fmt.Sprintf("pop_%d", i), nil)
+		f.mutatedTracesQueue.Push(copyTrace(trace, defaultCopyFilter()))
 	}
 
 	coverages := make([]CoverageStats, 0)
@@ -250,8 +245,8 @@ func (f *Fuzzer) Run() []CoverageStats {
 			f.stats["random_executions"] = f.stats["random_executions"].(int) + 1
 		}
 		trace, eventTrace := f.RunIteration(fmt.Sprintf("fuzz_%d", i), mimic)
-		if numNewStates := f.config.Guider.Check(trace, eventTrace); numNewStates > 0 {
-			numMutations := (numNewStates / 5) * f.config.MutPerTrace
+		if numNewStates, _ := f.config.Guider.Check(trace, eventTrace); numNewStates > 0 {
+			numMutations := f.config.MutPerTrace
 			for j := 0; j < numMutations; j++ {
 				new, ok := f.config.Mutator.Mutate(trace, eventTrace)
 				if ok {
@@ -370,7 +365,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		}
 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
-			recordSend(n, tCtx.eventTrace)
+			// recordSend(n, tCtx.eventTrace)
 			f.messageQueues[n.To].Push(n)
 		}
 	}

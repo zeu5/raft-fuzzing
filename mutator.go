@@ -315,12 +315,6 @@ func defaultCopyFilter() func(*SchedulingChoice) bool {
 	}
 }
 
-func typeCopyFilter(t SchedulingChoiceType) func(*SchedulingChoice) bool {
-	return func(sc *SchedulingChoice) bool {
-		return sc.Type == t
-	}
-}
-
 type combinedMutator struct {
 	mutators []Mutator
 }
