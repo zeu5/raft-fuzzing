@@ -99,6 +99,7 @@ func (t *traceCtx) CanCrash(step int) (uint64, bool) {
 	if ok {
 		t.eventTrace.Append(&Event{
 			Name: "Remove",
+			Node: node,
 			Params: map[string]interface{}{
 				"i": int(node),
 			},
@@ -117,6 +118,7 @@ func (t *traceCtx) CanStart(step int) (uint64, bool) {
 	if ok {
 		t.eventTrace.Append(&Event{
 			Name: "Add",
+			Node: node,
 			Params: map[string]interface{}{
 				"i": int(node),
 			},
@@ -195,6 +197,7 @@ func (f *Fuzzer) Schedule(node uint64, maxMessages int) []pb.Message {
 func recordReceive(message pb.Message, eventTrace *List[*Event]) {
 	eventTrace.Append(&Event{
 		Name: "DeliverMessage",
+		Node: message.To,
 		Params: map[string]interface{}{
 			"type":     message.Type.String(),
 			"term":     message.Term,
@@ -213,6 +216,7 @@ func recordReceive(message pb.Message, eventTrace *List[*Event]) {
 func recordSend(message pb.Message, eventTrace *List[*Event]) {
 	eventTrace.Append(&Event{
 		Name: "SendMessage",
+		Node: message.From,
 		Params: map[string]interface{}{
 			"type":     message.Type.String(),
 			"term":     message.Term,
@@ -371,7 +375,7 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		}
 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
-			// recordSend(n, tCtx.eventTrace)
+			recordSend(n, tCtx.eventTrace)
 			f.messageQueues[n.To].Push(n)
 		}
 	}

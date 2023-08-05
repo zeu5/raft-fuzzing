@@ -144,3 +144,95 @@ func parseTLCStateTrace(states []State) []State {
 	}
 	return newStates
 }
+
+type TraceCoverageGuider struct {
+	traces map[string]bool
+	*TLCStateGuider
+}
+
+var _ Guider = &TraceCoverageGuider{}
+
+func NewTraceCoverageGuider(tlcAddr, recordPath string, recordTraces bool) *TraceCoverageGuider {
+	return &TraceCoverageGuider{
+		traces:         make(map[string]bool),
+		TLCStateGuider: NewTLCStateGuider(tlcAddr, recordPath, recordTraces),
+	}
+}
+
+func (t *TraceCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[*Event]) (int, float64) {
+	t.TLCStateGuider.Check(trace, events)
+
+	eTrace := newEventTrace(events)
+	key := eTrace.Hash()
+
+	new := 0
+	if _, ok := t.traces[key]; !ok {
+		t.traces[key] = true
+		new = 1
+	}
+
+	return new, float64(new) / float64(len(t.traces))
+}
+
+func (t *TraceCoverageGuider) Coverage() CoverageStats {
+	c := t.TLCStateGuider.Coverage()
+	c.UniqueTraces = len(t.traces)
+	return c
+}
+
+func (t *TraceCoverageGuider) Reset(key string) {
+	t.traces = make(map[string]bool)
+	t.TLCStateGuider.Reset(key)
+}
+
+type eventTrace struct {
+	Nodes map[string]*eventNode
+}
+
+func (e *eventTrace) Hash() string {
+	bs, err := json.Marshal(e)
+	if err != nil {
+		return ""
+	}
+	hash := sha256.Sum256(bs)
+	return hex.EncodeToString(hash[:])
+}
+
+type eventNode struct {
+	*Event
+	Node uint64
+	Prev string
+	ID   string `json:"-"`
+}
+
+func (e *eventNode) Hash() string {
+	bs, err := json.Marshal(e)
+	if err != nil {
+		return ""
+	}
+	hash := sha256.Sum256(bs)
+	return hex.EncodeToString(hash[:])
+}
+
+func newEventTrace(events *List[*Event]) *eventTrace {
+	eTrace := &eventTrace{
+		Nodes: make(map[string]*eventNode),
+	}
+	curEvent := make(map[uint64]*eventNode)
+
+	for _, e := range events.Iter() {
+		node := &eventNode{
+			Event: e,
+			Node:  e.Node,
+			Prev:  "",
+		}
+		prev, ok := curEvent[e.Node]
+		if ok {
+			node.Prev = prev.ID
+		}
+		node.ID = node.Hash()
+		curEvent[e.Node] = node
+		eTrace.Nodes[node.ID] = node
+	}
+	return eTrace
+}

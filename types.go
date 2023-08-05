@@ -7,6 +7,7 @@ import (
 
 type Event struct {
 	Name   string
+	Node   uint64 `json:"-"`
 	Params map[string]interface{}
 	Reset  bool
 }

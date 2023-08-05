@@ -118,6 +118,7 @@ func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) {
 			request, _ := strconv.Atoi(string(m.Entries[0].Data))
 			ctx.AddEvent(&Event{
 				Name: "ClientRequest",
+				Node: leader,
 				Params: map[string]interface{}{
 					"request": request,
 					"leader":  leader,
@@ -153,6 +154,7 @@ func (r *RaftEnvironment) Tick(ctx *FuzzContext) []pb.Message {
 			if len(ready.CommittedEntries) > 0 {
 				ctx.AddEvent(&Event{
 					Name: "AdvanceCommitIndex",
+					Node: id,
 					Params: map[string]interface{}{
 						"i": int(id),
 					},
@@ -175,12 +177,14 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 		if old != new && new == raft.StateLeader {
 			ctx.AddEvent(&Event{
 				Name: "BecomeLeader",
+				Node: id,
 				Params: map[string]interface{}{
 					"node": id,
 				},
 			})
 			ctx.AddEvent(&Event{
 				Name: "ClientRequest",
+				Node: id,
 				Params: map[string]interface{}{
 					"request": 0,
 					"leader":  id,
@@ -189,6 +193,7 @@ func (r *RaftEnvironment) updateStates(ctx *FuzzContext) {
 		} else if (old != new && new == raft.StateCandidate) || (oldTerm < newTerm && old == new && new == raft.StateCandidate) {
 			ctx.AddEvent(&Event{
 				Name: "Timeout",
+				Node: id,
 				Params: map[string]interface{}{
 					"node": id,
 				},
