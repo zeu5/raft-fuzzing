@@ -95,6 +95,7 @@ func (c *Comparision) record() {
 
 	runTimes := make(map[string][]time.Duration)
 	finalCoverages := make(map[string][]CoverageStats)
+	uniqueStateCoverages := make(map[string][][]int)
 	stats := make(map[string][]map[string]interface{})
 
 	for i := 0; i < c.runs; i++ {
@@ -107,11 +108,13 @@ func (c *Comparision) record() {
 		k := 0
 		for name, points := range c.runInfos[i].coverages {
 			plotPoints := make([]plotter.XY, len(points))
+			coveragePoints := make([]int, len(points))
 			for j, point := range points {
 				plotPoints[j] = plotter.XY{
 					X: float64(j),
 					Y: float64(point.UniqueStates),
 				}
+				coveragePoints[j] = point.UniqueStates
 			}
 			line, err := plotter.NewLine(plotter.XYs(plotPoints))
 			if err != nil {
@@ -120,6 +123,11 @@ func (c *Comparision) record() {
 			line.Color = plotutil.Color(k)
 			p.Add(line)
 			p.Legend.Add(name, line)
+
+			if _, ok := uniqueStateCoverages[name]; !ok {
+				uniqueStateCoverages[name] = make([][]int, 0)
+			}
+			uniqueStateCoverages[name] = append(uniqueStateCoverages[name], coveragePoints)
 
 			k++
 		}
@@ -180,10 +188,13 @@ func (c *Comparision) record() {
 	for name, kStats := range stats {
 		recordData[name]["stats"] = kStats
 	}
+	for name, coverages := range uniqueStateCoverages {
+		recordData[name]["coverages"] = coverages
+	}
 
 	recordPath := path.Join(c.plotPath, "data.json")
 
-	if cov, err := json.MarshalIndent(recordData, "", "\t"); err == nil {
+	if cov, err := json.Marshal(recordData); err == nil {
 		os.WriteFile(recordPath, cov, 0644)
 	}
 }
