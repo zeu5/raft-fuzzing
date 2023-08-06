@@ -1,0 +1,90 @@
+{
+	"all_mutators_tlcstate": {
+		"average_coverage": {
+			"UniqueStates": 22477,
+			"UniqueTraces": 50000,
+			"UniqueStateTraces": 13954
+		},
+		"average_runtime": "36m53.919921473s",
+		"coverages": [
+			{
+				"UniqueStates": 21929,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 13952
+			},
+			{
+				"UniqueStates": 22882,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 13993
+			},
+			{
+				"UniqueStates": 22621,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 13917
+			}
+		],
+		"runtimes": [
+			2215263990932,
+			2213819850580,
+			2212675922907
+		],
+		"stats": [
+			{
+				"mutated_executions": 49768,
+				"random_executions": 232
+			},
+			{
+				"mutated_executions": 49674,
+				"random_executions": 326
+			},
+			{
+				"mutated_executions": 49722,
+				"random_executions": 278
+			}
+		]
+	},
+	"random_tlcstate": {
+		"average_coverage": {
+			"UniqueStates": 17576,
+			"UniqueTraces": 50000,
+			"UniqueStateTraces": 10274
+		},
+		"average_runtime": "36m41.870495668s",
+		"coverages": [
+			{
+				"UniqueStates": 17535,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 10233
+			},
+			{
+				"UniqueStates": 17731,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 10340
+			},
+			{
+				"UniqueStates": 17464,
+				"UniqueTraces": 50000,
+				"UniqueStateTraces": 10251
+			}
+		],
+		"runtimes": [
+			2202723845065,
+			2201419842217,
+			2201467799722
+		],
+		"stats": [
+			{
+				"mutated_executions": 250,
+				"random_executions": 49750
+			},
+			{
+				"mutated_executions": 250,
+				"random_executions": 49750
+			},
+			{
+				"mutated_executions": 250,
+				"random_executions": 49750
+			}
+		]
+	}
+}
