@@ -71,6 +71,7 @@ func OneCommand() *cobra.Command {
 				Steps:      horizon,
 				Strategy:   NewRandomStrategy(),
 				Mutator:    &EmptyMutator{},
+				Checker:    SerializabilityChecker(),
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas: replicas,
 					// Higher election tick gives random better chances. (less timeouts)
@@ -89,11 +90,9 @@ func OneCommand() *cobra.Command {
 				SeedPopulationSize: 10,
 				ReseedFrequency:    2000,
 			}, numRuns)
-			c.AddGuider("traceCov", NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
+			// c.AddGuider("traceCov", NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.AddMutator("random", &EmptyMutator{})
-			// c.AddMutator("swapCrashNodes", NewSwapCrashNodeMutator(1))
-			// c.AddMutator("swapMaxMessages", NewSwapMaxMessagesMutator(10))
 			c.AddMutator("all_mutators", CombineMutators(NewSwapCrashNodeMutator(2), NewSwapNodeMutator(20), NewSwapMaxMessagesMutator(20)))
 
 			c.Run()

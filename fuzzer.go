@@ -146,6 +146,7 @@ func (t *traceCtx) IsClientRequest(step int) (int, bool) {
 type FuzzerConfig struct {
 	Iterations            int
 	Steps                 int
+	Checker               Checker
 	Mutator               Mutator
 	Guider                Guider
 	Strategy              Strategy
@@ -174,7 +175,7 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	}
 	f.stats["random_executions"] = 0
 	f.stats["mutated_executions"] = 0
-
+	f.stats["buggy_executions"] = 0
 	return f
 }
 
@@ -377,6 +378,9 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
 			recordSend(n, tCtx.eventTrace)
 			f.messageQueues[n.To].Push(n)
+		}
+		if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
+			f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
 		}
 	}
 	return tCtx.trace, tCtx.eventTrace

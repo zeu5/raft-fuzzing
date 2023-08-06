@@ -48,20 +48,18 @@ type RaftEnvironmentConfig struct {
 }
 
 type RaftEnvironment struct {
-	config         RaftEnvironmentConfig
-	nodes          map[uint64]*raft.RawNode
-	storages       map[uint64]*raft.MemoryStorage
-	curStates      map[uint64]raft.Status
-	curCommitIndex uint64
+	config    RaftEnvironmentConfig
+	nodes     map[uint64]*raft.RawNode
+	storages  map[uint64]*raft.MemoryStorage
+	curStates map[uint64]raft.Status
 }
 
 func NewRaftEnvironment(config RaftEnvironmentConfig) *RaftEnvironment {
 	r := &RaftEnvironment{
-		config:         config,
-		nodes:          make(map[uint64]*raft.RawNode),
-		storages:       make(map[uint64]*raft.MemoryStorage),
-		curStates:      make(map[uint64]raft.Status),
-		curCommitIndex: 0,
+		config:    config,
+		nodes:     make(map[uint64]*raft.RawNode),
+		storages:  make(map[uint64]*raft.MemoryStorage),
+		curStates: make(map[uint64]raft.Status),
 	}
 	r.makeNodes()
 	return r
@@ -94,7 +92,6 @@ func (r *RaftEnvironment) makeNodes() {
 		r.curStates[nodeID] = node.Status()
 		r.nodes[nodeID] = node
 	}
-	r.curCommitIndex = 0
 }
 
 func (r *RaftEnvironment) Reset(ctx *FuzzContext) {
