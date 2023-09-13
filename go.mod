@@ -2,10 +2,6 @@ module github.com/zeu5/raft-fuzzing
 
 go 1.18
 
-replace (
-	github.com/zeu5/gocov => /Users/srinidhin/Local/go/src/github.com/zeu5/gocov
-)
-
 require (
 	github.com/spf13/cobra v1.6.1
 	go.etcd.io/raft/v3 v3.0.0-20230228002126-d9907d6ac6ba
@@ -23,7 +19,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/zeu5/gocov v0.2.0 // indirect
+	github.com/zeu5/gocov v0.2.1 // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
