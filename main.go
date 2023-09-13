@@ -41,7 +41,7 @@ func FuzzCommand() *cobra.Command {
 				Iterations: episodes,
 				Steps:      horizon,
 				Strategy:   NewRandomStrategy(),
-				Guider:     NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces),
+				Guider:     NewLineCoverageGuider("127.0.0.1:2023", "traces", recordTraces),
 				Mutator:    &EmptyMutator{},
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas:      replicas,
@@ -91,6 +91,7 @@ func OneCommand() *cobra.Command {
 				ReseedFrequency:    2000,
 			}, numRuns)
 			// c.AddGuider("traceCov", NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
+			c.AddGuider("lineCov", NewLineCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.AddGuider("tlcstate", NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.AddMutator("random", &EmptyMutator{})
 			c.AddMutator("all_mutators", CombineMutators(NewSwapCrashNodeMutator(2), NewSwapNodeMutator(20), NewSwapMaxMessagesMutator(20)))

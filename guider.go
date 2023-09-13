@@ -10,6 +10,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/zeu5/gocov"
 )
 
 type CoverageStats struct {
@@ -235,4 +237,39 @@ func newEventTrace(events *List[*Event]) *eventTrace {
 		eTrace.Nodes[node.ID] = node
 	}
 	return eTrace
+}
+
+type LineCoverageGuider struct {
+	lines   int
+	covData *gocov.Coverage
+	*TLCStateGuider
+}
+
+func NewLineCoverageGuider(tlcAddr, recordPath string, recordTraces bool) *LineCoverageGuider {
+	return &LineCoverageGuider{
+		lines:          0,
+		covData:        nil,
+		TLCStateGuider: NewTLCStateGuider(tlcAddr, recordPath, recordTraces),
+	}
+}
+
+var _ Guider = &LineCoverageGuider{}
+
+func (l *LineCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[*Event]) (int, float64) {
+	l.TLCStateGuider.Check(trace, events)
+	cov, err := gocov.GetCoverage(gocov.CoverageConfig{
+		MatchPkgs: []string{"github.com/zeu5/raft-fuzzing/raft"},
+	})
+	if err != nil {
+		return 0, 0
+	}
+	if l.covData == nil {
+		l.covData = cov
+		return cov.GetCoveredLines(), 1
+	}
+	curLines := l.covData.GetCoveredLines()
+	l.covData.Data.Merge(cov.Data)
+	updatedLines := l.covData.GetCoveredLines()
+	newLines := updatedLines - curLines
+	return newLines, float64(newLines) / float64(max(curLines, 1))
 }
