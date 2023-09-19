@@ -14,12 +14,17 @@ import (
 )
 
 type Comparision struct {
-	config   *FuzzerConfig
-	mutators map[string]Mutator
-	guiders  map[string]Guider
-	plotPath string
-	runs     int
-	runInfos []runInfo
+	config     *FuzzerConfig
+	benchmarks map[string]benchmark
+	plotPath   string
+	runs       int
+	runInfos   []runInfo
+}
+
+type benchmark struct {
+	guider  Guider
+	mutator Mutator
+	key     string
 }
 
 type runInfo struct {
@@ -37,21 +42,20 @@ func NewComparision(plotPath string, config *FuzzerConfig, runs int) *Comparisio
 	}
 
 	return &Comparision{
-		plotPath: plotPath,
-		config:   config,
-		runInfos: make([]runInfo, runs),
-		runs:     runs,
-		mutators: make(map[string]Mutator),
-		guiders:  make(map[string]Guider),
+		plotPath:   plotPath,
+		config:     config,
+		runInfos:   make([]runInfo, runs),
+		runs:       runs,
+		benchmarks: make(map[string]benchmark),
 	}
 }
 
-func (c *Comparision) AddMutator(name string, mutator Mutator) {
-	c.mutators[name] = mutator
-}
-
-func (c *Comparision) AddGuider(name string, guider Guider) {
-	c.guiders[name] = guider
+func (c *Comparision) Add(name string, mutator Mutator, guider Guider) {
+	c.benchmarks[name] = benchmark{
+		guider:  guider,
+		mutator: mutator,
+		key:     name,
+	}
 }
 
 func (c *Comparision) doRun(run int) runInfo {
@@ -61,23 +65,19 @@ func (c *Comparision) doRun(run int) runInfo {
 		coverages: make(map[string][]CoverageStats),
 		stats:     make(map[string]map[string]interface{}),
 	}
-	for guiderName, guider := range c.guiders {
-		for mutatorName, mutator := range c.mutators {
-			key := mutatorName + "_" + guiderName
-			c.config.Guider = guider
-			c.config.Mutator = mutator
-			rI.coverages[key] = make([]CoverageStats, 0)
-			fuzzer := NewFuzzer(c.config)
-			start := time.Now()
-			fmt.Printf("Running for mutator: %s, guider: %s\n", mutatorName, guiderName)
-			rI.coverages[key] = fuzzer.Run()
-			end := time.Since(start)
-			rI.runTimes[key] = end
-			fmt.Printf("\nRun time: %s\n", end.String())
-			// Reset guider
-			rI.stats[key] = fuzzer.stats
-			guider.Reset(mutatorName)
-		}
+	for key, b := range c.benchmarks {
+		c.config.Guider = b.guider
+		c.config.Mutator = b.mutator
+		rI.coverages[key] = make([]CoverageStats, 0)
+		fuzzer := NewFuzzer(c.config)
+		start := time.Now()
+		fmt.Printf("Running for benchmark: %s\n", key)
+		rI.coverages[key] = fuzzer.Run()
+		end := time.Since(start)
+		rI.runTimes[key] = end
+		fmt.Printf("\nRun time: %s\n", end.String())
+		rI.stats[key] = fuzzer.stats
+		b.guider.Reset(key)
 	}
 	return rI
 }

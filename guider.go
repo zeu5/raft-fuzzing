@@ -240,14 +240,12 @@ func newEventTrace(events *List[*Event]) *eventTrace {
 }
 
 type LineCoverageGuider struct {
-	lines   int
 	covData *gocov.Coverage
 	*TLCStateGuider
 }
 
 func NewLineCoverageGuider(tlcAddr, recordPath string, recordTraces bool) *LineCoverageGuider {
 	return &LineCoverageGuider{
-		lines:          0,
 		covData:        nil,
 		TLCStateGuider: NewTLCStateGuider(tlcAddr, recordPath, recordTraces),
 	}
@@ -272,4 +270,9 @@ func (l *LineCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[
 	updatedLines := l.covData.GetCoveredLines()
 	newLines := updatedLines - curLines
 	return newLines, float64(newLines) / float64(max(curLines, 1))
+}
+
+func (l *LineCoverageGuider) Reset(key string) {
+	l.covData = nil
+	l.TLCStateGuider.Reset(key)
 }
