@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 
+	"github.com/zeu5/raft-fuzzing/raft"
 	pb "github.com/zeu5/raft-fuzzing/raft/raftpb"
 )
 
@@ -38,5 +39,17 @@ func SerializabilityChecker() func(*RaftEnvironment) bool {
 			}
 		}
 		return true
+	}
+}
+
+func SingleLeader() func(*RaftEnvironment) bool {
+	return func(re *RaftEnvironment) bool {
+		leaders := 0
+		for _, s := range re.curStates {
+			if s.RaftState == raft.StateLeader {
+				leaders += 1
+			}
+		}
+		return leaders <= 1
 	}
 }

@@ -376,9 +376,9 @@ func (s *SwapCrashNodeMutator) Mutate(trace *List[*SchedulingChoice], eventTrace
 		jCh, _ := newTrace.Get(j)
 
 		iChNew := iCh.Copy()
-		iChNew.NodeID = jCh.NodeID
+		iChNew.Node = jCh.Node
 		jChNew := jCh.Copy()
-		jChNew.NodeID = iCh.NodeID
+		jChNew.Node = iCh.Node
 
 		newTrace.Set(i, iChNew)
 		newTrace.Set(j, jChNew)

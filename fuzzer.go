@@ -10,7 +10,7 @@ import (
 )
 
 type Fuzzer struct {
-	messageQueues      map[uint64]*Queue[pb.Message]
+	messageQueues      map[string]*Queue[pb.Message]
 	nodes              []uint64
 	config             *FuzzerConfig
 	mutatedTracesQueue *Queue[*List[*SchedulingChoice]]
@@ -35,25 +35,30 @@ type traceCtx struct {
 	fuzzer *Fuzzer
 }
 
-func (t *traceCtx) GetNextNodeChoice() (uint64, int) {
-	var choice uint64
+func (t *traceCtx) GetNextNodeChoice() (uint64, uint64, int) {
+	var fromChoice uint64
+	var toChoice uint64
 	var maxMessages int
 	if t.nodeChoices.Size() > 0 {
 		c, _ := t.nodeChoices.Pop()
-		choice = c.NodeID
+		fromChoice = c.From
+		toChoice = c.To
 		maxMessages = c.MaxMessages
 	} else {
 		i := t.rand.Intn(len(t.fuzzer.nodes))
-		choice = t.fuzzer.nodes[i]
+		j := t.rand.Intn(len(t.fuzzer.nodes))
+		fromChoice = t.fuzzer.nodes[i]
+		toChoice = t.fuzzer.nodes[j]
 		maxMessages = t.rand.Intn(t.fuzzer.config.MaxMessages)
 	}
 	t.trace.Append(&SchedulingChoice{
 		Type:        Node,
-		NodeID:      choice,
+		From:        fromChoice,
+		To:          toChoice,
 		MaxMessages: maxMessages,
 	})
 
-	return choice, maxMessages
+	return fromChoice, toChoice, maxMessages
 }
 
 func (t *traceCtx) GetRandomBoolean() (choice bool) {
@@ -105,9 +110,9 @@ func (t *traceCtx) CanCrash(step int) (uint64, bool) {
 			},
 		})
 		t.trace.Append(&SchedulingChoice{
-			Type:   StopNode,
-			NodeID: node,
-			Step:   step,
+			Type: StopNode,
+			Node: node,
+			Step: step,
 		})
 	}
 	return node, ok
@@ -124,9 +129,9 @@ func (t *traceCtx) CanStart(step int) (uint64, bool) {
 			},
 		})
 		t.trace.Append(&SchedulingChoice{
-			Type:   StartNode,
-			NodeID: node,
-			Step:   step,
+			Type: StartNode,
+			Node: node,
+			Step: step,
 		})
 	}
 	return node, ok
@@ -163,7 +168,7 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	f := &Fuzzer{
 		config:             config,
 		nodes:              make([]uint64, 0),
-		messageQueues:      make(map[uint64]*Queue[pb.Message]),
+		messageQueues:      make(map[string]*Queue[pb.Message]),
 		mutatedTracesQueue: NewQueue[*List[*SchedulingChoice]](),
 		rand:               rand.New(rand.NewSource(time.Now().UnixNano())),
 		raftEnvironment:    NewRaftEnvironment(config.RaftEnvironmentConfig),
@@ -171,7 +176,10 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	}
 	for i := 0; i <= f.config.RaftEnvironmentConfig.Replicas; i++ {
 		f.nodes = append(f.nodes, uint64(i))
-		f.messageQueues[uint64(i)] = NewQueue[pb.Message]()
+		for j := 0; j <= f.config.RaftEnvironmentConfig.Replicas; j++ {
+			key := fmt.Sprintf("%d_%d", i, j)
+			f.messageQueues[key] = NewQueue[pb.Message]()
+		}
 	}
 	f.stats["random_executions"] = 0
 	f.stats["mutated_executions"] = 0
@@ -179,8 +187,9 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	return f
 }
 
-func (f *Fuzzer) Schedule(node uint64, maxMessages int) []pb.Message {
-	queue, ok := f.messageQueues[node]
+func (f *Fuzzer) Schedule(from uint64, to uint64, maxMessages int) []pb.Message {
+	key := fmt.Sprintf("%d_%d", from, to)
+	queue, ok := f.messageQueues[key]
 	if !ok || queue.Size() == 0 {
 		return []pb.Message{}
 	}
@@ -296,22 +305,27 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			case RandomInteger:
 				tCtx.integerChoices.Push(ch.IntegerChoice)
 			case StartNode:
-				tCtx.startPoints[ch.Step] = ch.NodeID
+				tCtx.startPoints[ch.Step] = ch.Node
 			case StopNode:
-				tCtx.crashPoints[ch.Step] = ch.NodeID
+				tCtx.crashPoints[ch.Step] = ch.Node
 			case ClientRequest:
 				tCtx.clientRequests[ch.Step] = ch.Request
 			}
 		}
 	} else {
 		for i := 0; i < f.config.Steps; i++ {
-			var idx int = 0
-			for idx == 0 {
-				idx = f.rand.Intn(len(f.nodes))
+			var fromIdx int = 0
+			for fromIdx == 0 {
+				fromIdx = f.rand.Intn(len(f.nodes))
+			}
+			var toIdx int = 0
+			for toIdx == 0 {
+				toIdx = f.rand.Intn(len(f.nodes))
 			}
 			tCtx.nodeChoices.Push(&SchedulingChoice{
 				Type:        Node,
-				NodeID:      f.nodes[idx],
+				From:        f.nodes[fromIdx],
+				To:          f.nodes[toIdx],
 				MaxMessages: f.rand.Intn(f.config.MaxMessages),
 			})
 		}
@@ -355,9 +369,9 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 				delete(crashed, toStart)
 			}
 		}
-		toSchedule, maxMessages := tCtx.GetNextNodeChoice()
-		if _, ok := crashed[toSchedule]; !ok {
-			messages := f.Schedule(toSchedule, maxMessages)
+		from, to, maxMessages := tCtx.GetNextNodeChoice()
+		if _, ok := crashed[to]; !ok {
+			messages := f.Schedule(from, to, maxMessages)
 			for _, m := range messages {
 				recordReceive(m, tCtx.eventTrace)
 				f.raftEnvironment.Step(fCtx, m)
@@ -377,10 +391,14 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
 			recordSend(n, tCtx.eventTrace)
-			f.messageQueues[n.To].Push(n)
+			key := fmt.Sprintf("%d_%d", n.From, n.To)
+			f.messageQueues[key].Push(n)
 		}
-		if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
-			f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
+	}
+	if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
+		f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
+		if _, ok := f.stats["first_buggy_execution"]; !ok {
+			f.stats["first_buggy_execution"] = iteration
 		}
 	}
 	return tCtx.trace, tCtx.eventTrace

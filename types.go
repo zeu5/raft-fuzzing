@@ -25,7 +25,9 @@ type SchedulingChoiceType string
 
 type SchedulingChoice struct {
 	Type          SchedulingChoiceType
-	NodeID        uint64
+	Node          uint64
+	From          uint64
+	To            uint64
 	MaxMessages   int
 	BooleanChoice bool `json:",omitempty"`
 	IntegerChoice int  `json:",omitempty"`
@@ -36,7 +38,9 @@ type SchedulingChoice struct {
 func (s *SchedulingChoice) Copy() *SchedulingChoice {
 	return &SchedulingChoice{
 		Type:          s.Type,
-		NodeID:        s.NodeID,
+		Node:          s.Node,
+		From:          s.From,
+		To:            s.To,
 		MaxMessages:   s.MaxMessages,
 		BooleanChoice: s.BooleanChoice,
 		IntegerChoice: s.IntegerChoice,

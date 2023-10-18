@@ -21,7 +21,7 @@
 raft-fuzzing
 cov.json
 traces
-results
+results*
 
 __pycache__
 *.pyc
