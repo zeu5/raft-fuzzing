@@ -183,7 +183,7 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	}
 	f.stats["random_executions"] = 0
 	f.stats["mutated_executions"] = 0
-	f.stats["buggy_executions"] = 0
+	f.stats["buggy_executions"] = make(map[string]bool, 0)
 	return f
 }
 
@@ -394,13 +394,13 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			key := fmt.Sprintf("%d_%d", n.From, n.To)
 			f.messageQueues[key].Push(n)
 		}
-	}
-	if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
-		f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
-		if _, ok := f.stats["first_buggy_execution"]; !ok {
-			f.stats["first_buggy_execution"] = iteration
+		if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
+			buggyExecutions := f.stats["buggy_executions"].(map[string]bool)
+			buggyExecutions[iteration] = true
+			f.stats["buggy_executions"] = buggyExecutions
 		}
 	}
+
 	return tCtx.trace, tCtx.eventTrace
 }
 

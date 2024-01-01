@@ -74,10 +74,10 @@ func OneCommand() *cobra.Command {
 				Checker:    SerializabilityChecker(),
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas: replicas,
-					// Higher election tick gives random better chances. (less timeouts)
-					ElectionTick:  12,
-					HeartbeatTick: 2,
-					// Should not be more than ElectionTick/4 otherwise you are more likely to starve processes
+					// Lower election tick gives random better chances. (more timeouts)
+					ElectionTick:  20,
+					HeartbeatTick: 4,
+					// Should not be more than ElectionTick/(replica+1) otherwise you are more likely to starve processes
 					TicksPerStep: 3,
 				},
 				// Too much is bad, can lead to very local search
