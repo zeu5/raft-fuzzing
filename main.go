@@ -19,7 +19,7 @@ var (
 func main() {
 	rootCommand := &cobra.Command{}
 	rootCommand.PersistentFlags().IntVarP(&episodes, "episodes", "e", 10000, "Number of episodes to run")
-	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 50, "Horizon of each episode")
+	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 100, "Horizon of each episode")
 	rootCommand.PersistentFlags().StringVarP(&savePath, "save", "s", "results", "Save the results to the specified path")
 	rootCommand.PersistentFlags().IntVarP(&replicas, "replicas", "r", 3, "Num of replicas to run in environment")
 	rootCommand.PersistentFlags().IntVar(&requests, "requests", 1, "Num of initial requests to serve")
