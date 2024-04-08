@@ -32,7 +32,20 @@ type traceCtx struct {
 	clientRequests map[int]int
 	rand           *rand.Rand
 
+	Error  error
 	fuzzer *Fuzzer
+}
+
+func (t *traceCtx) SetError(err error) {
+	t.Error = err
+}
+
+func (t *traceCtx) GetError() error {
+	return t.Error
+}
+
+func (t *traceCtx) IsError() bool {
+	return t.Error != nil
 }
 
 func (t *traceCtx) GetNextNodeChoice() (uint64, uint64, int) {
@@ -184,6 +197,8 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	f.stats["random_executions"] = 0
 	f.stats["mutated_executions"] = 0
 	f.stats["buggy_executions"] = 0
+	f.stats["execution_errors"] = make(map[string]bool, 0)
+	f.stats["error_executions"] = make(map[string][]string)
 	return f
 }
 
@@ -357,15 +372,22 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 
 	crashed := make(map[uint64]bool)
 	fCtx := &FuzzContext{traceCtx: tCtx}
+EpisodeLoop:
 	for j := 0; j < f.config.Steps; j++ {
 		if toCrash, ok := tCtx.CanCrash(j); ok {
 			f.raftEnvironment.Stop(fCtx, toCrash)
+			if tCtx.IsError() {
+				break EpisodeLoop
+			}
 			crashed[toCrash] = true
 		}
 		if toStart, ok := tCtx.CanStart(j); ok {
 			_, isCrashed := crashed[toStart]
 			if isCrashed {
 				f.raftEnvironment.Start(fCtx, toStart)
+				if tCtx.IsError() {
+					break EpisodeLoop
+				}
 				delete(crashed, toStart)
 			}
 		}
@@ -375,6 +397,9 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			for _, m := range messages {
 				recordReceive(m, tCtx.eventTrace)
 				f.raftEnvironment.Step(fCtx, m)
+				if tCtx.IsError() {
+					break EpisodeLoop
+				}
 			}
 		}
 
@@ -387,6 +412,9 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 				},
 			}
 			f.raftEnvironment.Step(fCtx, req)
+			if tCtx.IsError() {
+				break EpisodeLoop
+			}
 		}
 
 		for _, n := range f.raftEnvironment.Tick(fCtx) {
@@ -395,6 +423,15 @@ func (f *Fuzzer) RunIteration(iteration string, mimic *List[*SchedulingChoice]) 
 			f.messageQueues[key].Push(n)
 		}
 	}
+	if tCtx.IsError() {
+		errS := tCtx.GetError().Error()
+		f.stats["execution_errors"].(map[string]bool)[errS] = true
+		if _, ok := f.stats["error_executions"].(map[string][]int)[errS]; !ok {
+			f.stats["error_executions"].(map[string][]int)[errS] = make([]int, 0)
+		}
+		f.stats["error_executions"].(map[string][]string)[errS] = append(f.stats["error_executions"].(map[string][]string)[errS], iteration)
+	}
+
 	if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
 		f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
 		if _, ok := f.stats["first_buggy_execution"]; !ok {

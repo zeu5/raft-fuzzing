@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"strconv"
@@ -99,6 +100,11 @@ func (r *RaftEnvironment) Reset(ctx *FuzzContext) {
 }
 
 func (r *RaftEnvironment) Step(ctx *FuzzContext, m pb.Message) {
+	defer func(c *FuzzContext) {
+		if r := recover(); r != nil {
+			c.traceCtx.SetError(fmt.Errorf("panic in Step: %v", r))
+		}
+	}(ctx)
 	if m.Type == pb.MsgProp {
 		// TODO: handle proposal separately
 		haveLeader := false
@@ -206,7 +212,7 @@ func (r *RaftEnvironment) Stop(ctx *FuzzContext, node uint64) {
 
 func (r *RaftEnvironment) Start(ctx *FuzzContext, nodeID uint64) {
 	if storage, ok := r.storages[nodeID]; ok {
-		node, _ := raft.NewRawNode(&raft.Config{
+		node, err := raft.NewRawNode(&raft.Config{
 			ID:                        nodeID,
 			ElectionTick:              r.config.ElectionTick,
 			HeartbeatTick:             r.config.HeartbeatTick,
@@ -219,5 +225,8 @@ func (r *RaftEnvironment) Start(ctx *FuzzContext, nodeID uint64) {
 			CheckQuorum:               true,
 		})
 		r.nodes[nodeID] = node
+		if err != nil {
+			ctx.traceCtx.SetError(fmt.Errorf("error starting node: %v", err))
+		}
 	}
 }
