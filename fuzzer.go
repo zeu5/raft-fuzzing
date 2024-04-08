@@ -196,9 +196,9 @@ func NewFuzzer(config *FuzzerConfig) *Fuzzer {
 	}
 	f.stats["random_executions"] = 0
 	f.stats["mutated_executions"] = 0
-	f.stats["buggy_executions"] = 0
 	f.stats["execution_errors"] = make(map[string]bool, 0)
 	f.stats["error_executions"] = make(map[string][]string)
+	f.stats["buggy_executions"] = make(map[string]bool, 0)
 	return f
 }
 
@@ -433,11 +433,11 @@ EpisodeLoop:
 	}
 
 	if f.config.Checker != nil && !f.config.Checker(f.raftEnvironment) {
-		f.stats["buggy_executions"] = f.stats["buggy_executions"].(int) + 1
-		if _, ok := f.stats["first_buggy_execution"]; !ok {
-			f.stats["first_buggy_execution"] = iteration
-		}
+		buggyExecutions := f.stats["buggy_executions"].(map[string]bool)
+		buggyExecutions[iteration] = true
+		f.stats["buggy_executions"] = buggyExecutions
 	}
+
 	return tCtx.trace, tCtx.eventTrace
 }
 

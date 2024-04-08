@@ -62,7 +62,6 @@ func (t *TLCStateGuider) Reset(key string) {
 	t.statesMap = make(map[int64]bool)
 	t.tracesMap = make(map[string]bool)
 	t.stateTracesMap = make(map[string]bool)
-
 }
 
 func (t *TLCStateGuider) Coverage() CoverageStats {
@@ -273,6 +272,8 @@ func (l *LineCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[
 }
 
 func (l *LineCoverageGuider) Reset(key string) {
+	fmt.Printf("Percentage of lines covered: %f\n", l.covData.GetPercent())
+	l.covData.Reset()
 	l.covData = nil
 	l.TLCStateGuider.Reset(key)
 }

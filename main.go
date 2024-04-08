@@ -19,7 +19,7 @@ var (
 func main() {
 	rootCommand := &cobra.Command{}
 	rootCommand.PersistentFlags().IntVarP(&episodes, "episodes", "e", 10000, "Number of episodes to run")
-	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 50, "Horizon of each episode")
+	rootCommand.PersistentFlags().IntVar(&horizon, "horizon", 100, "Horizon of each episode")
 	rootCommand.PersistentFlags().StringVarP(&savePath, "save", "s", "results", "Save the results to the specified path")
 	rootCommand.PersistentFlags().IntVarP(&replicas, "replicas", "r", 3, "Num of replicas to run in environment")
 	rootCommand.PersistentFlags().IntVar(&requests, "requests", 1, "Num of initial requests to serve")
@@ -74,10 +74,10 @@ func OneCommand() *cobra.Command {
 				Checker:    SerializabilityChecker(),
 				RaftEnvironmentConfig: RaftEnvironmentConfig{
 					Replicas: replicas,
-					// Higher election tick gives random better chances. (less timeouts)
-					ElectionTick:  12,
-					HeartbeatTick: 2,
-					// Should not be more than ElectionTick/4 otherwise you are more likely to starve processes
+					// Lower election tick gives random better chances. (more timeouts)
+					ElectionTick:  20,
+					HeartbeatTick: 4,
+					// Should not be more than ElectionTick/(replica+1) otherwise you are more likely to starve processes
 					TicksPerStep: 3,
 				},
 				// Too much is bad, can lead to very local search
