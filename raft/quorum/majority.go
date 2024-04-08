@@ -196,7 +196,7 @@ func (c MajorityConfig) VoteResult(votes map[uint64]bool) VoteResult {
 		}
 	}
 
-	q := len(c)/3 + 1
+	q := len(c)/2 + 1
 	if votedCnt >= q {
 		return VoteWon
 	}
