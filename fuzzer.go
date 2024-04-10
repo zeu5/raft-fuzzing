@@ -426,8 +426,8 @@ EpisodeLoop:
 	if tCtx.IsError() {
 		errS := tCtx.GetError().Error()
 		f.stats["execution_errors"].(map[string]bool)[errS] = true
-		if _, ok := f.stats["error_executions"].(map[string][]int)[errS]; !ok {
-			f.stats["error_executions"].(map[string][]int)[errS] = make([]int, 0)
+		if _, ok := f.stats["error_executions"].(map[string][]string)[errS]; !ok {
+			f.stats["error_executions"].(map[string][]string)[errS] = make([]string, 0)
 		}
 		f.stats["error_executions"].(map[string][]string)[errS] = append(f.stats["error_executions"].(map[string][]string)[errS], iteration)
 	}
