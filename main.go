@@ -27,10 +27,32 @@ func main() {
 	rootCommand.PersistentFlags().BoolVar(&recordTraces, "record-traces", false, "Record the traces explored")
 	rootCommand.AddCommand(FuzzCommand())
 	rootCommand.AddCommand(OneCommand())
+	rootCommand.AddCommand(MeasureCommand())
 
 	if err := rootCommand.Execute(); err != nil {
 		fmt.Println(err)
 	}
+}
+
+func MeasureCommand() *cobra.Command {
+	var tracesPath string
+	var tlcAddr string
+	var outPath string
+
+	cmd := &cobra.Command{
+		Use: "measure",
+		Run: func(cmd *cobra.Command, args []string) {
+			m := NewTLCCoverageMeasurer(tracesPath, outPath, tlcAddr)
+			if err := m.Measure(); err != nil {
+				fmt.Println(err)
+			}
+		},
+	}
+	cmd.Flags().StringVar(&tracesPath, "traces", "traces", "Path to traces")
+	cmd.Flags().StringVar(&tlcAddr, "tlc", "tlc", "TLC Server address")
+	cmd.Flags().StringVar(&outPath, "out", "out", "Output path")
+
+	return cmd
 }
 
 func FuzzCommand() *cobra.Command {
