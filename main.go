@@ -42,6 +42,9 @@ func MeasureCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "measure",
 		Run: func(cmd *cobra.Command, args []string) {
+			if outPath == "" {
+				outPath = tracesPath
+			}
 			m := NewTLCCoverageMeasurer(tracesPath, outPath, tlcAddr)
 			if err := m.Measure(); err != nil {
 				fmt.Println(err)
@@ -50,7 +53,7 @@ func MeasureCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&tracesPath, "traces", "traces", "Path to traces")
 	cmd.Flags().StringVar(&tlcAddr, "tlc", "tlc", "TLC Server address")
-	cmd.Flags().StringVar(&outPath, "out", "out", "Output path")
+	cmd.Flags().StringVar(&outPath, "out", "", "Output path")
 
 	return cmd
 }

@@ -134,6 +134,16 @@ func (l *List[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(l.l)
 }
 
+func (l *List[T]) UnmarshalJSON(data []byte) error {
+	values := make([]T, 0)
+	err := json.Unmarshal(data, &values)
+	if err != nil {
+		return err
+	}
+	l.l = values
+	return nil
+}
+
 type State struct {
 	Repr string
 	Key  int64

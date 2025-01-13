@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -21,19 +22,39 @@ func NewTLCCoverageMeasurer(tracesPath, outPath, tlcAddr string) *TLCCoverageMea
 	return &TLCCoverageMeasurer{
 		tracesPath: tracesPath,
 		tlcAddr:    tlcAddr,
+		outPath:    outPath,
 
 		tlcClient: NewTLCClient(tlcAddr),
+		cov:       make(map[int64]int),
 	}
 }
 
-func (p *TLCCoverageMeasurer) Measure() error {
-	traces, err := p.loadTraces()
+func (p *TLCCoverageMeasurer) parseTrace(filePath string) (*List[*Event], error) {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("error loading traces: %s", err)
+		return nil, fmt.Errorf("error reading trace file: %s", err)
+	}
+	trace := &List[*Event]{}
+	if err = json.Unmarshal(data, trace); err != nil {
+		return nil, fmt.Errorf("error parsing trace file: %s", err)
+	}
+	return trace, nil
+}
+
+func (p *TLCCoverageMeasurer) Measure() error {
+	tracePathCount, err := p.loadTracePathCount()
+	if err != nil {
+		return fmt.Errorf("error loading trace Paths: %s", err)
 	}
 	coverages := make([]int, 0)
 	coverages = append(coverages, 0)
-	for _, trace := range traces {
+	for i := 1; i < tracePathCount; i++ {
+		tracePath := path.Join(p.tracesPath, fmt.Sprintf("trace_%d.json", i))
+		fmt.Printf("\rChecking %d/%d trace", i, tracePathCount)
+		trace, err := p.parseTrace(tracePath)
+		if err != nil {
+			return fmt.Errorf("error parsing trace: %s", err)
+		}
 		states, err := p.tlcClient.SendTrace(trace)
 		if err != nil {
 			return fmt.Errorf("error sending trace to tlc: %s", err)
@@ -41,39 +62,32 @@ func (p *TLCCoverageMeasurer) Measure() error {
 		for _, state := range states {
 			p.cov[state.Key]++
 		}
-		coverages = append(coverages, len(states))
+		coverages = append(coverages, len(p.cov))
 	}
+	fmt.Println("... Done")
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"coverages": coverages,
 	})
 	if err != nil {
 		return fmt.Errorf("error marshalling json: %s", err)
 	}
-	if err = os.WriteFile(filepath.Join(p.outPath, "coverage.json"), jsonData, 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(p.outPath, "tlccoverage.json"), jsonData, 0644); err != nil {
 		return fmt.Errorf("error writing coverage file: %s", err)
 	}
 	return nil
 }
 
-func (p *TLCCoverageMeasurer) loadTraces() ([]*List[*Event], error) {
-	traces := make([]*List[*Event], 0)
+func (p *TLCCoverageMeasurer) loadTracePathCount() (int, error) {
 	files, err := os.ReadDir(p.tracesPath)
 	if err != nil {
-		return traces, fmt.Errorf("error reading traces directory: %s", err)
+		return 0, fmt.Errorf("error reading traces directory: %s", err)
 	}
+	count := 0
 	for _, file := range files {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(p.tracesPath, file.Name()))
-		if err != nil {
-			return traces, fmt.Errorf("error reading trace file: %s", err)
-		}
-		trace := &List[*Event]{}
-		if err = json.Unmarshal(data, trace); err != nil {
-			return traces, fmt.Errorf("error parsing trace file: %s", err)
-		}
-		traces = append(traces, trace)
+		count++
 	}
-	return traces, nil
+	return count, nil
 }
