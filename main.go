@@ -117,7 +117,7 @@ func OneCommand() *cobra.Command {
 			}, numRuns)
 			combinedMutator := CombineMutators(NewSwapCrashNodeMutator(2), NewSwapNodeMutator(20), NewSwapMaxMessagesMutator(20))
 			c.Add("traceCov", combinedMutator, NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
-			c.Add("lineCov", combinedMutator, NewLineCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
+			// c.Add("lineCov", combinedMutator, NewLineCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.Add("tlcstate", combinedMutator, NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.Add("random", &EmptyMutator{}, NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 
