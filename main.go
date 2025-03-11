@@ -52,7 +52,7 @@ func MeasureCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tracesPath, "traces", "traces", "Path to traces")
-	cmd.Flags().StringVar(&tlcAddr, "tlc", "tlc", "TLC Server address")
+	cmd.Flags().StringVar(&tlcAddr, "tlc", "localhost:2023", "TLC Server address")
 	cmd.Flags().StringVar(&outPath, "out", "", "Output path")
 
 	return cmd
