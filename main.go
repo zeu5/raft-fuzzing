@@ -106,20 +106,20 @@ func OneCommand() *cobra.Command {
 					TicksPerStep: 3,
 				},
 				// Too much is bad, can lead to very local search
-				MutPerTrace:    5,
+				MutPerTrace:    3,
 				NumberRequests: requests,
 				// More makes random worse
 				CrashQuota: 10,
 				// Too few messages are better for random
 				MaxMessages:        5,
-				SeedPopulationSize: 10,
-				ReseedFrequency:    2000,
+				SeedPopulationSize: 20,
+				ReseedFrequency:    200,
 			}, numRuns)
 			combinedMutator := CombineMutators(NewSwapCrashNodeMutator(2), NewSwapNodeMutator(20), NewSwapMaxMessagesMutator(20))
-			c.Add("traceCov", combinedMutator, NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
+			// c.Add("traceCov", combinedMutator, NewTraceCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
 			// c.Add("lineCov", combinedMutator, NewLineCoverageGuider("127.0.0.1:2023", "traces", recordTraces))
 			c.Add("tlcstate", combinedMutator, NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
-			c.Add("random", &EmptyMutator{}, NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
+			// c.Add("random", &EmptyMutator{}, NewTLCStateGuider("127.0.0.1:2023", "traces", recordTraces))
 
 			c.Run()
 		},
