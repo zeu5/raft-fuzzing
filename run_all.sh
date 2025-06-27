@@ -10,4 +10,4 @@ fi
 
 mkdir fuzz_cov
 export GOCOVERDIR=fuzz_cov
-./raft-fuzzing compare -e 10 --runs 1
+./raft-fuzzing compare -e 10000 --runs 5
