@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/zeu5/gocov"
 )
@@ -35,6 +36,8 @@ type TLCStateGuider struct {
 	recordPath     string
 	recordTraces   bool
 	count          int
+
+	lock *sync.Mutex
 }
 
 var _ Guider = &TLCStateGuider{}
@@ -55,16 +58,21 @@ func NewTLCStateGuider(tlcAddr, recordPath string, recordTraces bool) *TLCStateG
 		recordPath:     recordPath,
 		recordTraces:   recordTraces,
 		count:          0,
+		lock:           new(sync.Mutex),
 	}
 }
 
 func (t *TLCStateGuider) Reset(key string) {
+	t.lock.Lock()
 	t.statesMap = make(map[int64]bool)
 	t.tracesMap = make(map[string]bool)
 	t.stateTracesMap = make(map[string]bool)
+	t.lock.Unlock()
 }
 
 func (t *TLCStateGuider) Coverage() CoverageStats {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	return CoverageStats{
 		UniqueStates:      len(t.statesMap),
 		UniqueTraces:      len(t.tracesMap),
@@ -76,29 +84,37 @@ func (t *TLCStateGuider) Check(trace *List[*SchedulingChoice], eventTrace *List[
 	bs, _ := json.Marshal(trace)
 	sum := sha256.Sum256(bs)
 	hash := hex.EncodeToString(sum[:])
+	t.lock.Lock()
 	if _, ok := t.tracesMap[hash]; !ok {
 		// fmt.Printf("New trace: %s\n", hash)
 		t.tracesMap[hash] = true
 	}
+	t.lock.Unlock()
 
+	t.lock.Lock()
 	curStates := len(t.statesMap)
+	t.lock.Unlock()
 	numNewStates := 0
 	if tlcStates, err := t.tlcClient.SendTrace(eventTrace); err == nil {
 		t.recordTrace(trace, eventTrace, tlcStates)
 		for _, s := range tlcStates {
+			t.lock.Lock()
 			_, ok := t.statesMap[s.Key]
 			if !ok {
 				numNewStates += 1
 				t.statesMap[s.Key] = true
 			}
+			t.lock.Unlock()
 		}
 		bs, _ := json.Marshal(tlcStates)
 		sum := sha256.Sum256(bs)
 		stateTraceHash := hex.EncodeToString(sum[:])
+		t.lock.Lock()
 		if _, ok := t.stateTracesMap[stateTraceHash]; !ok {
 			// fmt.Printf("New state trace: %s\n", stateTraceHash)
 			t.stateTracesMap[stateTraceHash] = true
 		}
+		t.lock.Unlock()
 	} else {
 		panic(fmt.Sprintf("error connecting to tlc: %s", err))
 	}
@@ -167,6 +183,8 @@ func (t *TraceCoverageGuider) Check(trace *List[*SchedulingChoice], events *List
 	key := eTrace.Hash()
 
 	new := 0
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	if _, ok := t.traces[key]; !ok {
 		t.traces[key] = true
 		new = 1
@@ -177,12 +195,16 @@ func (t *TraceCoverageGuider) Check(trace *List[*SchedulingChoice], events *List
 
 func (t *TraceCoverageGuider) Coverage() CoverageStats {
 	c := t.TLCStateGuider.Coverage()
+	t.lock.Lock()
 	c.UniqueTraces = len(t.traces)
+	t.lock.Unlock()
 	return c
 }
 
 func (t *TraceCoverageGuider) Reset(key string) {
+	t.lock.Lock()
 	t.traces = make(map[string]bool)
+	t.lock.Unlock()
 	t.TLCStateGuider.Reset(key)
 }
 
@@ -258,8 +280,11 @@ func (l *LineCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[
 		MatchPkgs: []string{"github.com/zeu5/raft-fuzzing/raft"},
 	})
 	if err != nil {
+		fmt.Println("Error reading coverage data: " + err.Error())
 		return 0, 0
 	}
+	l.lock.Lock()
+	defer l.lock.Unlock()
 	if l.covData == nil {
 		l.covData = cov
 		return cov.GetCoveredLines(), 1
@@ -272,8 +297,10 @@ func (l *LineCoverageGuider) Check(trace *List[*SchedulingChoice], events *List[
 }
 
 func (l *LineCoverageGuider) Reset(key string) {
+	l.lock.Lock()
 	fmt.Printf("Percentage of lines covered: %f\n", l.covData.GetPercent())
 	l.covData.Reset()
 	l.covData = nil
+	l.lock.Unlock()
 	l.TLCStateGuider.Reset(key)
 }

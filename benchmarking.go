@@ -183,6 +183,7 @@ func (c *Comparision) record() {
 			UniqueTraces:      sum.UniqueTraces / len(coverages),
 		}
 		recordData[name]["average_coverage"] = avg
+		fmt.Printf("Final average state coverage of %s is %d\n", name, avg.UniqueStates)
 		recordData[name]["coverages"] = coverages
 	}
 	for name, kStats := range stats {
